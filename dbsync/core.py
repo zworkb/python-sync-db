@@ -360,7 +360,8 @@ def make_content_type_id(model):
     "Returns a content type id for the given model."
     mname = model.__name__
     tname = model.__table__.name
-    return zlib.crc32("{0}/{1}".format(mname, tname), 0) & 0xffffffff
+    text = "{0}/{1}".format(mname, tname)
+    return zlib.crc32(text.encode("latin-1"), 0) & 0xffffffff
 
 
 @session_committing

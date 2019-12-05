@@ -27,8 +27,9 @@ def addstuff():
 
 def changestuff():
     session = Session()
-    a1, a2 = session.query(A)
-    b1, b2, b3 = session.query(B)
+    res = session.query(A).all()
+    a1, a2 = res
+    b1, b2, b3 = session.query(B).all()
     a1.name = "first a modified"
     b2.a = a2
     session.delete(b3)
