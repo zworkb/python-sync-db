@@ -26,7 +26,7 @@ class City(Base):
     name = Column(String)
 
     def __repr__(self):
-        return u"<City id: {0}; name: {1}>".format(self.id, self.name)
+        return "<City id: {0}; name: {1}>".format(self.id, self.name)
 
 name_pool = ["foo", "bar", "baz"]
 
@@ -34,7 +34,7 @@ def load_extra(city):
     return "-".join(name_pool) + "-" + city.name
 
 def save_extra(city, data):
-    print city.name, data
+    print(city.name, data)
 
 client.extend(City, "extra", String, load_extra, save_extra)
 
@@ -52,7 +52,7 @@ class House(Base):
         City, backref=backref("houses", cascade='all, delete-orphan'))
 
     def __repr__(self):
-        return u"<House id: {0}; address: {1}; city_id: {2}>".format(
+        return "<House id: {0}; address: {1}; city_id: {2}>".format(
             self.id, self.address, self.city_id)
 
 
@@ -76,7 +76,7 @@ class Person(Base):
     birth_city = relationship(City)
 
     def __repr__(self):
-        return u"<Person '{0} {1}' house_id: {2}; birth_city_id: {3}>".\
+        return "<Person '{0} {1}' house_id: {2}; birth_city_id: {3}>".\
             format(self.first_name,
                    self.last_name,
                    self.house_id,

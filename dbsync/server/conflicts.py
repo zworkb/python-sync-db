@@ -28,8 +28,7 @@ def find_unique_conflicts(push_message, session):
                       if op.command != 'd'):
         if model is None: continue
 
-        for constraint in ifilter(lambda c: isinstance(c, UniqueConstraint),
-                                  class_mapper(model).mapped_table.constraints):
+        for constraint in [c for c in class_mapper(model).mapped_table.constraints if isinstance(c, UniqueConstraint)]:
 
             unique_columns = tuple(col.name for col in constraint.columns)
             remote_obj = push_message.query(model).\
@@ -39,7 +38,7 @@ def find_unique_conflicts(push_message, session):
 
             if all(value is None for value in remote_values): continue
             local_obj = query_model(session, model).\
-                filter_by(**dict(izip(unique_columns, remote_values))).first()
+                filter_by(**dict(list(zip(unique_columns, remote_values)))).first()
             if local_obj is None: continue
             local_pk = getattr(local_obj, get_pk(model))
             if local_pk == pk: continue

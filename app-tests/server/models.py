@@ -27,7 +27,7 @@ class City(Base):
     name = Column(String(500))
 
     def __repr__(self):
-        return u"<City id: {0}; name: {1}>".format(self.id, self.name)
+        return "<City id: {0}; name: {1}>".format(self.id, self.name)
 
 name_pool = ["foo", "bar", "baz"]
 
@@ -35,14 +35,14 @@ def load_extra(city):
     return "-".join(name_pool) + "-" + city.name
 
 def save_extra(city, data):
-    print "SAVING -------------------"
-    print city.name, data
-    print "SAVED  -------------------"
+    print("SAVING -------------------")
+    print(city.name, data)
+    print("SAVED  -------------------")
 
 def delete_extra(old_city, new_city):
-    print "DELETING -----------------"
-    print old_city.name, (new_city.name if new_city is not None else None)
-    print "DELETED  -----------------"
+    print("DELETING -----------------")
+    print(old_city.name, (new_city.name if new_city is not None else None))
+    print("DELETED  -----------------")
 
 server.extend(City, "extra", String, load_extra, save_extra, delete_extra)
 
@@ -59,7 +59,7 @@ class House(Base):
     city = relationship(City, backref="houses")
 
     def __repr__(self):
-        return u"<House id: {0}; address: {1}; city_id: {2}>".format(
+        return "<House id: {0}; address: {1}; city_id: {2}>".format(
             self.id, self.address, self.city_id)
 
 
@@ -83,7 +83,7 @@ class Person(Base):
     birth_city = relationship(City)
 
     def __repr__(self):
-        return u"<Person '{0} {1}' house_id: {2}; birth_city_id: {3}>".\
+        return "<Person '{0} {1}' house_id: {2}; birth_city_id: {3}>".\
             format(self.first_name,
                    self.last_name,
                    self.house_id,

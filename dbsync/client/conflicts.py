@@ -30,7 +30,7 @@ def get_related_tables(sa_class):
     model by foreign key.
     """
     mapper = class_mapper(sa_class)
-    models = synched_models.models.iterkeys()
+    models = iter(list(synched_models.models.keys()))
     return [table for table in (class_mapper(model).mapped_table
                                 for model in models)
             if mapper.mapped_table in [key.column.table
@@ -44,7 +44,7 @@ def get_fks(table_from, table_to):
     the foreign keys don't exist, this procedure returns an empty
     list.
     """
-    fks = filter(lambda k: k.column.table == table_to, table_from.foreign_keys)
+    fks = [k for k in table_from.foreign_keys if k.column.table == table_to]
     return [fk.parent.name for fk in fks]
 
 
@@ -60,11 +60,9 @@ def related_local_ids(operation, session):
         return set()
     related_tables = get_related_tables(parent_model)
 
-    mapped_fks = ifilter(
-        lambda (m, fks): m is not None and fks,
-        [(synched_models.tables.get(t.name, null_model).model,
+    mapped_fks = [m_fks for m_fks in [(synched_models.tables.get(t.name, null_model).model,
           get_fks(t, class_mapper(parent_model).mapped_table))
-         for t in related_tables])
+         for t in related_tables] if m_fks[0] is not None and m_fks[1]]
     return set(
         (pk, ct.id)
         for pk, ct in \
@@ -87,11 +85,9 @@ def related_remote_ids(operation, container):
         return set()
     related_tables = get_related_tables(parent_model)
 
-    mapped_fks = ifilter(
-        lambda (m, fks): m is not None and fks,
-        [(synched_models.tables.get(t.name, null_model).model,
+    mapped_fks = [m_fks1 for m_fks1 in [(synched_models.tables.get(t.name, null_model).model,
           get_fks(t, class_mapper(parent_model).mapped_table))
-         for t in related_tables])
+         for t in related_tables] if m_fks1[0] is not None and m_fks1[1]]
     return set(
         (pk, ct.id)
         for pk, ct in \
@@ -202,7 +198,7 @@ def find_unique_conflicts(pull_ops, unversioned_ops, pull_message, session):
         match = query_model(session, model, only_pk=True).\
             options(*(undefer(column) for column in columns)).\
             filter_by(**dict((column, value)
-                             for column, value in izip(columns, values))).first()
+                             for column, value in zip(columns, values))).first()
         pk = get_pk(model)
         return match, getattr(match, pk, None)
 
@@ -228,8 +224,7 @@ def find_unique_conflicts(pull_ops, unversioned_ops, pull_message, session):
     for op in pull_ops:
         model = op.tracked_model
 
-        for constraint in ifilter(lambda c: isinstance(c, UniqueConstraint),
-                                  class_mapper(model).mapped_table.constraints):
+        for constraint in [c for c in class_mapper(model).mapped_table.constraints if isinstance(c, UniqueConstraint)]:
 
             unique_columns = tuple(col.name for col in constraint.columns)
             # Unique values on the server, to check conflicts with local database

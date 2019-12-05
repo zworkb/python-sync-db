@@ -10,7 +10,7 @@ These procedures will raise a NetworkError in case of network failure.
 """
 
 import requests
-import cStringIO
+import io
 import inspect
 import json
 
@@ -42,7 +42,7 @@ def _defaults(encode, decode, headers, timeout):
     if h and not isinstance(h, dict):
         raise ValueError("headers must be False or a python dictionary", h)
     t = timeout if not timeout is None else default_timeout
-    if not isinstance(t, (int, long, float)):
+    if not isinstance(t, (int, float)):
         raise ValueError("timeout must be a number")
     if t <= 0:
         t = None # Non-positive values are interpreted as no timeout
@@ -90,7 +90,7 @@ def post_request(server_url, json_dict,
             total = r.headers.get('content-length', None)
             partial = 0
             monitor({'status': "connect", 'size': total})
-            chunks = cStringIO.StringIO()
+            chunks = io.StringIO()
             for chunk in r:
                 partial += len(chunk)
                 monitor({'status': "downloading",
@@ -147,7 +147,7 @@ def get_request(server_url, data=None,
             total = r.headers.get('content-length', None)
             partial = 0
             monitor({'status': "connect", 'size': total})
-            chunks = cStringIO.StringIO()
+            chunks = io.StringIO()
             for chunk in r:
                 partial += len(chunk)
                 monitor({'status': "downloading",

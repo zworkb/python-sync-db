@@ -196,7 +196,7 @@ def extend(model, fieldname, fieldtype, loadfn, savefn, deletefn=None):
     Original proposal: https://gist.github.com/kklingenberg/7336576
     """
     assert inspect.isclass(model), "model must be a mapped class"
-    assert isinstance(fieldname, basestring) and bool(fieldname),\
+    assert isinstance(fieldname, str) and bool(fieldname),\
         "field name must be a non-empty string"
     assert not hasattr(model, fieldname),\
         "the model {0} already has the attribute {1}".\
@@ -217,8 +217,8 @@ def _has_extensions(obj):
 def _has_delete_functions(obj):
     return any(
         delfn is not None
-        for t, loadfn, savefn, delfn in model_extensions.get(
-            type(obj).__name__, {}).itervalues())
+        for t, loadfn, savefn, delfn in list(model_extensions.get(
+            type(obj).__name__, {}).values()))
 
 
 def save_extensions(obj):
@@ -227,12 +227,12 @@ def save_extensions(obj):
     object.
     """
     extensions = model_extensions.get(type(obj).__name__, {})
-    for field, ext in extensions.iteritems():
+    for field, ext in list(extensions.items()):
         _, _, savefn, _ = ext
         try: savefn(obj, getattr(obj, field, None))
         except:
             logger.exception(
-                u"Couldn't save extension %s for object %s", field, obj)
+                "Couldn't save extension %s for object %s", field, obj)
 
 
 def delete_extensions(old_obj, new_obj):
@@ -243,13 +243,13 @@ def delete_extensions(old_obj, new_obj):
     object was deleted).
     """
     extensions = model_extensions.get(type(old_obj).__name__, {})
-    for field, ext in extensions.iteritems():
+    for field, ext in list(extensions.items()):
         _, _, _, deletefn = ext
         if deletefn is not None:
             try: deletefn(old_obj, new_obj)
             except:
                 logger.exception(
-                    u"Couldn't delete extension %s for object %s", field, new_obj)
+                    "Couldn't delete extension %s for object %s", field, new_obj)
 
 
 #: Toggled variable used to disable listening to operations momentarily.
@@ -371,7 +371,7 @@ def generate_content_types(session=None):
     Inserts content types into the internal table used to describe
     operations.
     """
-    for tname, record in synched_models.tables.iteritems():
+    for tname, record in list(synched_models.tables.items()):
         content_type_id = record.id
         mname = record.model.__name__
         if session.query(ContentType).\

@@ -2,7 +2,7 @@
 Generic functions for repeating patterns.
 """
 
-from itertools import imap, ifilter, izip, izip_longest
+from itertools import zip_longest
 from functools import partial as partial_apply, wraps
 
 
@@ -150,7 +150,7 @@ def mfilter(predicate, lst):
     Removes the elements in *lst* that don't satisfy *predictate*,
     mutating *lst* (a list or a set).
     """
-    matching = filter(lambda e: not predicate(e), lst)
+    matching = [e for e in lst if not predicate(e)]
     for e in matching:
         lst.remove(e)
     return lst

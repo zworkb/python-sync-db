@@ -63,10 +63,10 @@ class PullMessage(BaseMessage):
 
     def _build_from_raw(self, data):
         self.created = decode(types.DateTime())(data['created'])
-        self.operations = map(partial(object_from_dict, Operation),
-                              imap(decode_dict(Operation), data['operations']))
-        self.versions = map(partial(object_from_dict, Version),
-                            imap(decode_dict(Version), data['versions']))
+        self.operations = list(map(partial(object_from_dict, Operation),
+                              list(map(decode_dict(Operation), data['operations']))))
+        self.versions = list(map(partial(object_from_dict, Version),
+                            list(map(decode_dict(Version), data['versions']))))
 
     def query(self, model):
         "Returns a query object for this message."
@@ -87,10 +87,10 @@ class PullMessage(BaseMessage):
         """
         encoded = super(PullMessage, self).to_json()
         encoded['created'] = encode(types.DateTime())(self.created)
-        encoded['operations'] = map(encode_dict(Operation),
-                                    imap(properties_dict, self.operations))
-        encoded['versions'] = map(encode_dict(Version),
-                                  imap(properties_dict, self.versions))
+        encoded['operations'] = list(map(encode_dict(Operation),
+                                    list(map(properties_dict, self.operations))))
+        encoded['versions'] = list(map(encode_dict(Version),
+                                  list(map(properties_dict, self.versions))))
         return encoded
 
     @session_closing
@@ -131,7 +131,7 @@ class PullMessage(BaseMessage):
             self.add_object(obj)
             if swell:
                 # add parent objects to resolve possible conflicts in merge
-                for parent in parent_objects(obj, synched_models.models.keys(),
+                for parent in parent_objects(obj, list(synched_models.models.keys()),
                                              session):
                     self.add_object(parent)
         return self
@@ -193,20 +193,20 @@ class PullMessage(BaseMessage):
                     required_objects[model] = pks
 
         for model, pks in ((m, batch)
-                           for m, pks in required_objects.iteritems()
+                           for m, pks in list(required_objects.items())
                            for batch in grouper(pks, MAX_SQL_VARIABLES)):
             for obj in query_model(session, model).filter(
                     getattr(model, get_pk(model)).in_(list(pks))).all():
                 self.add_object(obj, include_extensions=include_extensions)
                 # add parent objects to resolve conflicts in merge
                 for pmodel, ppk in parent_references(obj,
-                                                     synched_models.models.keys()):
+                                                     list(synched_models.models.keys())):
                     parent_pks = required_parents.get(pmodel, set())
                     parent_pks.add(ppk)
                     required_parents[pmodel] = parent_pks
 
         for pmodel, ppks in ((m, batch)
-                             for m, pks in required_parents.iteritems()
+                             for m, pks in list(required_parents.items())
                              for batch in grouper(pks, MAX_SQL_VARIABLES)):
             for parent in query_model(session, pmodel).filter(
                     getattr(pmodel, get_pk(pmodel)).in_(list(ppks))).all():
@@ -248,8 +248,8 @@ class PullRequestMessage(BaseMessage):
             self.operations = []
 
     def _build_from_raw(self, data):
-        self.operations = map(partial(object_from_dict, Operation),
-                              imap(decode_dict(Operation), data['operations']))
+        self.operations = list(map(partial(object_from_dict, Operation),
+                              list(map(decode_dict(Operation), data['operations']))))
         self.latest_version_id = decode(types.Integer())(
             data['latest_version_id'])
 
@@ -262,8 +262,8 @@ class PullRequestMessage(BaseMessage):
     def to_json(self):
         "Returns a JSON-friendly python dictionary."
         encoded = super(PullRequestMessage, self).to_json()
-        encoded['operations'] = map(encode_dict(Operation),
-                                    imap(properties_dict, self.operations))
+        encoded['operations'] = list(map(encode_dict(Operation),
+                                    list(map(properties_dict, self.operations))))
         encoded['latest_version_id'] = encode(types.Integer())(
             self.latest_version_id)
         return encoded

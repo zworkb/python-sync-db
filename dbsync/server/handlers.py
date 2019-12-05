@@ -51,7 +51,7 @@ def handle_query(data, session=None):
     if model is None: return None
     mname = model.__name__
     filters = dict((k, v) for k, v in ((k[len(mname) + 1:], v)
-                                       for k, v in data.iteritems()
+                                       for k, v in list(data.items())
                                        if k.startswith(mname + '_'))
                    if k and k in column_properties(model))
     message = BaseMessage()
@@ -69,7 +69,7 @@ def handle_repair(data=None, session=None):
     include_extensions = 'exclude_extensions' not in (data or {})
     latest_version_id = core.get_latest_version_id(session=session)
     message = BaseMessage()
-    for model in core.synched_models.models.iterkeys():
+    for model in list(core.synched_models.models.keys()):
         for obj in query_model(session, model):
             message.add_object(obj, include_extensions=include_extensions)
     response = message.to_json()
@@ -182,7 +182,7 @@ def handle_push(data, session=None):
     for uc in unique_conflicts:
         obj = uc['object']
         conflicting_objects.add(obj)
-        for key, value in izip(uc['columns'], uc['new_values']):
+        for key, value in zip(uc['columns'], uc['new_values']):
             setattr(obj, key, value)
     for obj in conflicting_objects:
         make_transient(obj) # remove from session
@@ -197,12 +197,12 @@ def handle_push(data, session=None):
     session.flush()
 
     # II) perform the operations
-    operations = filter(lambda o: o.tracked_model is not None, message.operations)
+    operations = [o for o in message.operations if o.tracked_model is not None]
     try:
         for op in operations:
             op.perform(message, session, message.node_id)
     except OperationError as e:
-        logger.exception(u"Couldn't perform operation in push from node %s.",
+        logger.exception("Couldn't perform operation in push from node %s.",
                          message.node_id)
         raise PushRejected("at least one operation couldn't be performed",
                            *e.args)
@@ -214,7 +214,7 @@ def handle_push(data, session=None):
     # IV) insert the operations, discarding the 'order' column
     for op in sorted(operations, key=attr('order')):
         new_op = Operation()
-        for k in ifilter(lambda k: k != 'order', properties_dict(op)):
+        for k in [k for k in properties_dict(op) if k != 'order']:
             setattr(new_op, k, getattr(op, k))
         session.add(new_op)
         new_op.version = version

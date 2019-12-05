@@ -61,11 +61,9 @@ def update_local_id(old_id, new_id, model, session):
 
     # Then the dependent ones
     related_tables = get_related_tables(model)
-    mapped_fks = ifilter(
-        lambda (m, fks): m is not None and fks,
-        [(core.synched_models.tables.get(t.name, core.null_model).model,
+    mapped_fks = [m_fks for m_fks in [(core.synched_models.tables.get(t.name, core.null_model).model,
           get_fks(t, class_mapper(model).mapped_table))
-         for t in related_tables])
+         for t in related_tables] if m_fks[0] is not None and m_fks[1]]
     for model, fks in mapped_fks:
         for fk in fks:
             for obj in query_model(session, model).filter_by(**{fk: old_id}):
@@ -82,18 +80,18 @@ class UniqueConstraintError(Exception):
     entries = None
 
     def __init__(self, entries):
-        entries = map(partial(apply, UniqueConstraintErrorEntry, ()), entries)
+        entries = list(map(partial(apply, UniqueConstraintErrorEntry, ()), entries))
         super(UniqueConstraintError, self).__init__(entries)
         self.entries = entries
 
     def __repr__(self):
-        if not self.entries: return u"<UniqueConstraintError - empty>"
-        return u"<UniqueConstraintError - {0}>".format(
-            u"; ".join(
-                u"{0} pk {1} columns ({2})".format(
+        if not self.entries: return "<UniqueConstraintError - empty>"
+        return "<UniqueConstraintError - {0}>".format(
+            "; ".join(
+                "{0} pk {1} columns ({2})".format(
                     entry.model.__name__,
                     entry.pk,
-                    u", ".join(entry.columns))
+                    ", ".join(entry.columns))
                 for entry in self.entries))
 
     def __str__(self): return repr(self)
@@ -112,8 +110,8 @@ def merge(pull_message, session=None):
     valid_cts = set(ct for ct in core.synched_models.ids)
 
     unversioned_ops = compress(session=session)
-    pull_ops = filter(attr('content_type_id').in_(valid_cts),
-                      pull_message.operations)
+    pull_ops = list(filter(attr('content_type_id').in_(valid_cts),
+                      pull_message.operations))
     pull_ops = compressed_operations(pull_ops)
 
     # I) first phase: resolve unique constraint conflicts if
@@ -128,7 +126,7 @@ def merge(pull_message, session=None):
     for uc in unique_conflicts:
         obj = uc['object']
         conflicting_objects.add(obj)
-        for key, value in izip(uc['columns'], uc['new_values']):
+        for key, value in zip(uc['columns'], uc['new_values']):
             setattr(obj, key, value)
     # Resolve potential cyclical conflicts by deleting and reinserting
     for obj in conflicting_objects:
@@ -265,7 +263,7 @@ def pull(pull_url, extra_data=None,
     *include_extensions* dictates whether the extension functions will
     be called during the merge or not. Default is ``True``.
     """
-    assert isinstance(pull_url, basestring), "pull url must be a string"
+    assert isinstance(pull_url, str), "pull url must be a string"
     assert bool(pull_url), "pull url can't be empty"
     if extra_data is not None:
         assert isinstance(extra_data, dict), "extra data must be a dictionary"

@@ -2,7 +2,7 @@ import datetime
 
 from sqlalchemy.orm import sessionmaker
 
-from models import City, House, Person, engine
+from .models import City, House, Person, engine
 from dbsync import models
 
 
@@ -14,7 +14,7 @@ Session = sessionmaker(bind=engine)
 def create_city(**kwargs):
     session = Session()
     city = City()
-    for k, v in kwargs.iteritems():
+    for k, v in kwargs.items():
         setattr(city, k, v)
     session.add(city)
     session.commit()
@@ -23,7 +23,7 @@ def create_city(**kwargs):
 def update_city(id=None, **kwargs):
     session = Session()
     city = session.query(City).filter(City.id == id).one()
-    for k, v in kwargs.iteritems():
+    for k, v in kwargs.items():
         setattr(city, k, v)
     session.commit()
 
@@ -37,7 +37,7 @@ def delete_city(id=None):
 
 def read_cities():
     session = Session()
-    for city in session.query(City): print city
+    for city in session.query(City): print(city)
 
 
 # CRUD houses
@@ -45,7 +45,7 @@ def read_cities():
 def create_house(**kwargs):
     session = Session()
     house = House()
-    for k, v in kwargs.iteritems():
+    for k, v in kwargs.items():
         setattr(house, k, v)
     session.add(house)
     session.commit()
@@ -54,7 +54,7 @@ def create_house(**kwargs):
 def update_house(id=None, **kwargs):
     session = Session()
     house = session.query(House).filter(House.id == id).one()
-    for k, v in kwargs.iteritems():
+    for k, v in kwargs.items():
         setattr(house, k, v)
     session.commit()
 
@@ -68,7 +68,7 @@ def delete_house(id=None):
 
 def read_houses():
     session = Session()
-    for house in session.query(House): print house
+    for house in session.query(House): print(house)
 
 
 # CRUD persons
@@ -76,7 +76,7 @@ def read_houses():
 def create_person(**kwargs):
     session = Session()
     person = Person()
-    for k, v in kwargs.iteritems():
+    for k, v in kwargs.items():
         setattr(person, k, v)
     session.add(person)
     session.commit()
@@ -85,7 +85,7 @@ def create_person(**kwargs):
 def update_person(id=None, **kwargs):
     session = Session()
     person = session.query(Person).filter(Person.id == id).one()
-    for k, v in kwargs.iteritems():
+    for k, v in kwargs.items():
         setattr(person, k, v)
     session.commit()
 
@@ -99,26 +99,26 @@ def delete_person(id=None):
 
 def read_persons():
     session = Session()
-    for person in session.query(Person): print person
+    for person in session.query(Person): print(person)
 
 
 # Synch
 
 def read_content_types():
     session = Session()
-    for ct in session.query(models.ContentType): print ct
+    for ct in session.query(models.ContentType): print(ct)
 
 
 def read_versions():
     session = Session()
-    for version in session.query(models.Version): print version
+    for version in session.query(models.Version): print(version)
 
 
 def read_operations():
     session = Session()
-    for op in session.query(models.Operation): print op
+    for op in session.query(models.Operation): print(op)
 
 
 def read_nodes():
     session = Session()
-    for node in session.query(models.Node): print node
+    for node in session.query(models.Node): print(node)

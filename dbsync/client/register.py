@@ -31,7 +31,7 @@ def register(registry_url, extra_data=None,
     function is ``json.loads``, and the *headers* are appropriate HTTP
     headers for JSON.
     """
-    assert isinstance(registry_url, basestring), "registry url must be a string"
+    assert isinstance(registry_url, str), "registry url must be a string"
     assert bool(registry_url), "registry url can't be empty"
     if extra_data is not None:
         assert isinstance(extra_data, dict), "extra data must be a dictionary"

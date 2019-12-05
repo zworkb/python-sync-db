@@ -86,8 +86,8 @@ class PushMessage(BaseMessage):
         self.key = decode(types.String())(data['key'])
         self.latest_version_id = decode(types.Integer())(
             data['latest_version_id'])
-        self.operations = map(partial(object_from_dict, Operation),
-                              imap(decode_dict(Operation), data['operations']))
+        self.operations = list(map(partial(object_from_dict, Operation),
+                              list(map(decode_dict(Operation), data['operations']))))
 
     def query(self, model):
         "Returns a query object for this message."
@@ -114,8 +114,8 @@ class PushMessage(BaseMessage):
         encoded['key'] = encode(types.String())(self.key)
         encoded['latest_version_id'] = encode(types.Integer())(
             self.latest_version_id)
-        encoded['operations'] = map(encode_dict(Operation),
-                                    imap(properties_dict, self.operations))
+        encoded['operations'] = list(map(encode_dict(Operation),
+                                    list(map(properties_dict, self.operations))))
         return encoded
 
     def _portion(self):
@@ -165,7 +165,7 @@ class PushMessage(BaseMessage):
                 pks.add(op.row_id)
                 required_objects[model] = pks
         for model, pks in ((m, batch)
-                           for m, pks in required_objects.iteritems()
+                           for m, pks in list(required_objects.items())
                            for batch in grouper(pks, MAX_SQL_VARIABLES)):
             for obj in query_model(session, model).filter(
                     getattr(model, get_pk(model)).in_(list(pks))).all():

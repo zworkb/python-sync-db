@@ -29,7 +29,7 @@ def set_log_target(fo):
     """
     global log_handler
     if log_handler is None:
-        log_handler = logging.FileHandler(fo) if isinstance(fo, basestring) \
+        log_handler = logging.FileHandler(fo) if isinstance(fo, str) \
             else logging.StreamHandler(fo)
         log_handler.setLevel(logging.WARNING)
         log_handler.setFormatter(

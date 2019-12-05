@@ -32,26 +32,26 @@ def _assert_operation_sequence(seq, session=None):
         format(seq[0].row_id,
                seq[0].content_type_id,
                seq[0].tracked_model,
-               list(reversed(map(attr('command'), seq))))
+               list(reversed(list(map(attr('command'), seq)))))
 
     if not all(op.command == 'u' for op in seq[1:-1]):
         warnings.warn(message)
         logger.error(
-            u"Can't have anything but updates between beginning "
-            u"and end of operation sequence. %s",
+            "Can't have anything but updates between beginning "
+            "and end of operation sequence. %s",
             seq)
 
     if len(seq) > 1:
         if seq[-1].command == 'd':
             warnings.warn(message)
             logger.error(
-                u"Can't have anything after a delete operation in sequence. %s",
+                "Can't have anything after a delete operation in sequence. %s",
                 seq)
 
         if seq[0].command == 'i':
             warnings.warn(message)
             logger.error(
-                u"Can't have anything before an insert in operation sequence. %s",
+                "Can't have anything before an insert in operation sequence. %s",
                 seq)
 
 
@@ -71,24 +71,24 @@ def compress(session=None):
     seqs = group_by(lambda op: (op.row_id, op.content_type_id), unversioned)
 
     # Check errors on sequences
-    for seq in seqs.itervalues():
+    for seq in list(seqs.values()):
         _assert_operation_sequence(seq, session)
 
-    for seq in ifilter(lambda seq: len(seq) > 1, seqs.itervalues()):
+    for seq in [seq for seq in iter(list(seqs.values())) if len(seq) > 1]:
         if seq[-1].command == 'i':
             if all(op.command == 'u' for op in seq[:-1]):
                 # updates are superfluous
-                map(session.delete, seq[:-1])
+                list(map(session.delete, seq[:-1]))
             elif seq[0].command == 'd':
                 # it's as if the object never existed
-                map(session.delete, seq)
+                list(map(session.delete, seq))
         elif seq[-1].command == 'u':
             if all(op.command == 'u' for op in seq[:-1]):
                 # leave a single update
-                map(session.delete, seq[1:])
+                list(map(session.delete, seq[1:]))
             elif seq[0].command == 'd':
                 # leave the delete statement
-                map(session.delete, seq[1:])
+                list(map(session.delete, seq[1:]))
     session.flush()
 
     # repair inconsistencies
@@ -150,7 +150,7 @@ def compressed_operations(operations):
     seqs = group_by(lambda op: (op.row_id, op.content_type_id),
                     sorted(operations, key=attr('order')))
     compressed = []
-    for seq in seqs.itervalues():
+    for seq in list(seqs.values()):
         if len(seq) == 1:
             compressed.append(seq[0])
         elif seq[0].command == 'i':

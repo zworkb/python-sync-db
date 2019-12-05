@@ -81,7 +81,7 @@ def set_default_timeout(t):
     Sets the default timeout in seconds for all HTTP requests. Default
     is 10
     """
-    assert isinstance(t, (int, long, float)), "timeout must be a number"
+    assert isinstance(t, (int, float)), "timeout must be a number"
     net.default_timeout = t
 
 

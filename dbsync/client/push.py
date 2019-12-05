@@ -85,7 +85,7 @@ def push(push_url, extra_data=None,
     *include_extensions* dictates whether the message will include
     model extensions or not.
     """
-    assert isinstance(push_url, basestring), "push url must be a string"
+    assert isinstance(push_url, str), "push url must be a string"
     assert bool(push_url), "push url can't be empty"
     if extra_data is not None:
         assert isinstance(extra_data, dict), "extra data must be a dictionary"

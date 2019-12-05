@@ -17,7 +17,7 @@ def types_dict(class_):
     "Augments standard types_dict with model extensions."
     dict_ = bare_types_dict(class_)
     extensions = core.model_extensions.get(class_.__name__, {})
-    for field, ext in extensions.iteritems():
+    for field, ext in list(extensions.items()):
         type_, _, _, _ = ext
         dict_[field] = type_
     return dict_
@@ -49,20 +49,20 @@ def encode_dict(class_):
     types to simpler ones, according to the given mapped class.
     """
     types = types_dict(class_)
-    encodings = dict((k, encode(t)) for k, t in types.iteritems())
+    encodings = dict((k, encode(t)) for k, t in list(types.items()))
     return lambda dict_: dict((k, encodings[k](v))
-                              for k, v in dict_.iteritems()
+                              for k, v in list(dict_.items())
                               if k in encodings)
 
 
 def _decode_table(type_):
     "*type_* is a SQLAlchemy data type."
     if isinstance(type_, types.Date):
-        return partial(apply, datetime.date)
+        return lambda pars:datetime.date(*pars)
     elif isinstance(type_, types.DateTime):
-        return partial(apply, datetime.datetime)
+        return lambda pars:datetime.datetime(*pars)
     elif isinstance(type_, types.Time):
-        return partial(apply, datetime.time)
+        return lambda pars:datetime.time(*pars)
     elif isinstance(type_, types.LargeBinary):
         return base64.standard_b64decode
     elif isinstance(type_, types.Numeric) and type_.asdecimal:
@@ -78,7 +78,7 @@ def decode_dict(class_):
     types to richer ones, according to the given mapped class.
     """
     types = types_dict(class_)
-    decodings = dict((k, decode(t)) for k, t in types.iteritems())
+    decodings = dict((k, decode(t)) for k, t in list(types.items()))
     return lambda dict_: dict((k, decodings[k](v))
-                              for k, v in dict_.iteritems()
+                              for k, v in list(dict_.items())
                               if k in decodings)

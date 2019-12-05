@@ -39,7 +39,7 @@ class ContentType(Base):
     model_name = Column(String(500))
 
     def __repr__(self):
-        return u"<ContentType id: {0}, table_name: {1}, model_name: {2}>".\
+        return "<ContentType id: {0}, table_name: {1}, model_name: {2}>".\
             format(self.content_type_id, self.table_name, self.model_name)
 
 
@@ -61,8 +61,8 @@ class Node(Base):
         super(Node, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return u"<Node node_id: {0}, registered: {1}, "\
-            u"registry_user_id: {2}, secret: {3}>".\
+        return "<Node node_id: {0}, registered: {1}, "\
+            "registry_user_id: {2}, secret: {3}>".\
             format(self.node_id,
                    self.registered,
                    self.registry_user_id,
@@ -86,7 +86,7 @@ class Version(Base):
     node = relationship(Node)
 
     def __repr__(self):
-        return u"<Version version_id: {0}, created: {1}>".\
+        return "<Version version_id: {0}, created: {1}>".\
             format(self.version_id, self.created)
 
 
@@ -122,7 +122,7 @@ class Operation(Base):
         return command
 
     def __repr__(self):
-        return u"<Operation row_id: {0}, model: {1}, command: {2}>".\
+        return "<Operation row_id: {0}, model: {1}, command: {2}>".\
             format(self.row_id, self.tracked_model, self.command)
 
     def references(self, obj):
@@ -166,14 +166,14 @@ class Operation(Base):
                 # Don't raise an exception if the incoming object is
                 # exactly the same as the local one.
                 if properties_dict(obj) == properties_dict(pull_obj):
-                    logger.warning(u"insert attempted when an identical object "
-                                   u"already existed in local database: "
-                                   u"model {0} pk {1}".format(model.__name__,
+                    logger.warning("insert attempted when an identical object "
+                                   "already existed in local database: "
+                                   "model {0} pk {1}".format(model.__name__,
                                                               operation.row_id))
                 else:
                     raise OperationError(
-                        u"insert attempted when the object already existed: "
-                        u"model {0} pk {1}".format(model.__name__,
+                        "insert attempted when the object already existed: "
+                        "model {0} pk {1}".format(model.__name__,
                                                    operation.row_id))
 
         elif operation.command == 'u':
@@ -186,8 +186,8 @@ class Operation(Base):
                 # raise OperationError(
                 #     "the referenced object doesn't exist in database", operation)
                 logger.warning(
-                    u"The referenced object doesn't exist in database. "
-                    u"Node %s. Operation %s",
+                    "The referenced object doesn't exist in database. "
+                    "Node %s. Operation %s",
                     node_id,
                     operation)
 
@@ -208,7 +208,7 @@ class Operation(Base):
                 # without using dbsync
                 logger.warning(
                     "The referenced object doesn't exist in database. "
-                    u"Node %s. Operation %s",
+                    "Node %s. Operation %s",
                     node_id,
                     operation)
             else:

@@ -65,7 +65,7 @@ def repair(repair_url, include_extensions=True, extra_data=None,
     function is ``json.loads``, and the *headers* are appropriate HTTP
     headers for JSON.
     """
-    assert isinstance(repair_url, basestring), "repair url must be a string"
+    assert isinstance(repair_url, str), "repair url must be a string"
     assert bool(repair_url), "repair url can't be empty"
     if extra_data is not None:
         assert isinstance(extra_data, dict), "extra data must be a dictionary"

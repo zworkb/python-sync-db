@@ -23,7 +23,7 @@ def query_server(query_url,
     def query(cls, **args):
         data = {'model': cls.__name__}
         data.update(dict(('{0}_{1}'.format(cls.__name__, key), value)
-                         for key, value in args.iteritems()))
+                         for key, value in list(args.items())))
 
         code, reason, response = get_request(
             query_url, data, encode, decode, headers, timeout, monitor)

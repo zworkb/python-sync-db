@@ -20,7 +20,7 @@ def generate_secret(length=128):
         "abcdefghijklmnopqrstuvwxyz"\
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"\
         ".,_-+*@:;[](){}~!?|<>=/\&$#"
-    return "".join(random.choice(chars) for _ in xrange(length))
+    return "".join(random.choice(chars) for _ in range(length))
 
 
 def properties_dict(sa_object):
@@ -67,7 +67,7 @@ def construct_bare(class_):
 def object_from_dict(class_, dict_):
     "Returns an object from a dictionary of attributes."
     obj = construct_bare(class_)
-    for k, v in dict_.iteritems():
+    for k, v in list(dict_.items()):
         setattr(obj, k, v)
     return obj
 
@@ -111,10 +111,9 @@ def parent_objects(sa_object, models, session, only_pk=False):
 
     *session* must be a valid SA session instance.
     """
-    return filter(lambda obj: obj is not None,
-                  (query_model(session, m, only_pk=only_pk).\
+    return [obj for obj in (query_model(session, m, only_pk=only_pk).\
                        filter_by(**{get_pk(m): val}).first()
-                   for m, val in parent_references(sa_object, models)))
+                   for m, val in parent_references(sa_object, models)) if obj is not None]
 
 
 def query_model(session, sa_class, only_pk=False):

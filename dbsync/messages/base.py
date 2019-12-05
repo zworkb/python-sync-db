@@ -18,13 +18,13 @@ class ObjectType(object):
         self.__model_name__ = mname
         self.__pk__ = pk
         self.__keys__ = []
-        for k, v in kwargs.iteritems():
+        for k, v in list(kwargs.items()):
             if k != '__model_name__' and k != '__pk__' and k != '__keys__':
                 setattr(self, k, v)
                 self.__keys__.append(k)
 
     def __repr__(self):
-        return u"<ObjectType {0} pk: {1}>".format(
+        return "<ObjectType {0} pk: {1}>".format(
             self.__model_name__, self.__pk__)
 
     def __eq__(self, other):
@@ -61,7 +61,7 @@ class MessageQuery(object):
             self.target = 'models.' + target.__name__
         elif inspect.isclass(target):
             self.target = target.__name__
-        elif isinstance(target, basestring):
+        elif isinstance(target, str):
             self.target = target
         else:
             raise TypeError(
@@ -85,7 +85,7 @@ class MessageQuery(object):
             return self
         return MessageQuery(
             self.target,
-            dict(self.payload, **{self.target: filter(predicate, to_filter)}))
+            dict(self.payload, **{self.target: list(filter(predicate, to_filter))}))
 
     def __iter__(self):
         "Yields objects mapped to their original type (*target*)."
@@ -93,7 +93,7 @@ class MessageQuery(object):
             else method('to_mapped_object')
         lst = self.payload.get(self.target, None)
         if lst is not None:
-            for e in imap(m, lst):
+            for e in map(m, lst):
                 yield e
 
     def all(self):
@@ -122,12 +122,9 @@ class BaseMessage(object):
 
     def _from_raw(self, data):
         getm = lambda k: synched_models.model_names.get(k, null_model).model
-        for k, v, m in ifilter(lambda (k, v, m): m is not None,
-                               imap(lambda (k, v): (k, v, getm(k)),
-                                    data['payload'].iteritems())):
+        for k, v, m in [k_v_m for k_v_m in [(k_v[0], k_v[1], getm(k_v[0])) for k_v in iter(list(data['payload'].items()))] if k_v_m[2] is not None]:
             self.payload[k] = set(
-                map(lambda dict_: ObjectType(k, dict_[get_pk(m)], **dict_),
-                    imap(decode_dict(m), v)))
+                [ObjectType(k, dict_[get_pk(m)], **dict_) for dict_ in map(decode_dict(m), v)])
 
     def query(self, model):
         "Returns a query object for this message."
@@ -137,11 +134,11 @@ class BaseMessage(object):
         "Returns a JSON-friendly python dictionary."
         encoded = {}
         encoded['payload'] = {}
-        for k, objects in self.payload.iteritems():
+        for k, objects in list(self.payload.items()):
             model = synched_models.model_names.get(k, null_model).model
             if model is not None:
-                encoded['payload'][k] = map(encode_dict(model),
-                                            imap(method('to_dict'), objects))
+                encoded['payload'][k] = list(map(encode_dict(model),
+                                            list(map(method('to_dict'), objects))))
         return encoded
 
     def add_object(self, obj, include_extensions=True):
@@ -153,7 +150,7 @@ class BaseMessage(object):
             return self
         properties = properties_dict(obj)
         if include_extensions:
-            for field, ext in model_extensions.get(classname, {}).iteritems():
+            for field, ext in list(model_extensions.get(classname, {}).items()):
                 _, loadfn, _, _ = ext
                 properties[field] = loadfn(obj)
         obj_set.add(ObjectType(
