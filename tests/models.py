@@ -9,7 +9,7 @@ import dbsync
 from dbsync import client, models
 
 
-engine = create_engine("sqlite://")
+engine = create_engine("sqlite:///./test.db")
 Session = sessionmaker(bind=engine)
 
 

@@ -46,9 +46,20 @@ def setup():
 @core.with_listening(False)
 def teardown():
     session = Session()
-    map(session.delete, session.query(A))
-    map(session.delete, session.query(B))
-    map(session.delete, session.query(models.Operation))
+    As = session.query(A).all()
+    Bs = session.query(B).all()
+    Ops = session.query(models.Operation).all()
+
+    for a in As:
+        session.delete(a)
+    # map(session.delete, As)  # for some reason mapping session.delete does not execute
+    for b in Bs:
+        session.delete(b)
+    # map(session.delete, Bs)  # for some reason mapping session.delete does not execute
+    for op in Ops:
+        session.delete(op)
+    # map(session.delete, Ops)  # for some reason mapping session.delete does not execute
+
     session.commit()
 
 
