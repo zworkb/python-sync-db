@@ -23,8 +23,8 @@ def addstuff():
 
 def changestuff():
     session = Session()
-    a1, a2 = session.query(A)
-    b1, b2, b3 = session.query(B)
+    a1, a2 = session.query(A).all()
+    b1, b2, b3 = session.query(B).all()
     a1.name = "first a modified"
     b2.a = a2
     session.delete(b3)
@@ -36,9 +36,13 @@ def setup():
 @core.with_listening(False)
 def teardown():
     session = Session()
-    map(session.delete, session.query(A))
-    map(session.delete, session.query(B))
-    map(session.delete, session.query(models.Operation))
+
+    for a in session.query(A).all():
+        session.delete(a)
+    for b in session.query(B).all():
+        session.delete(b)
+    for op in session.query(models.Operation).all():
+        session.delete(op)
     session.commit()
 
 
@@ -100,7 +104,7 @@ def test_compression_correctness():
     session = Session()
     ops = compressed_operations(session.query(models.Operation).all())
     groups = group_by(lambda op: (op.content_type_id, op.row_id), ops)
-    for g in groups.itervalues():
+    for g in groups.values():
         logging.info(g)
         assert len(g) == 1
     # assert correctness when compressing operations from a pull
