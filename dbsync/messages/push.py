@@ -127,7 +127,8 @@ class PushMessage(BaseMessage):
 
     def _sign(self):
         if self._secret is not None:
-            self.key = hashlib.sha512(self._secret + self._portion()).hexdigest()
+            text = self._secret + self._portion()
+            self.key = hashlib.sha512(text.encode("utf-8")).hexdigest()
 
     def set_node(self, node):
         "Sets the node and key for this message."
@@ -140,8 +141,9 @@ class PushMessage(BaseMessage):
         "Checks whether the key for this message is proper."
         if self.key is None or self.node_id is None: return False
         node = session.query(Node).filter(Node.node_id == self.node_id).first()
+        text = node.secret + self._portion()
         return node is not None and \
-            self.key == hashlib.sha512(node.secret + self._portion()).hexdigest()
+            self.key == hashlib.sha512(text.encode("utf-8")).hexdigest()
 
     @session_closing
     def add_unversioned_operations(self, session=None, include_extensions=True):
