@@ -36,13 +36,12 @@ def teardown():
     session = Session()
     # map(session.delete, session.query(A))
 
-    # map(session.delete, session.query(B).all())
+    for a in session.query(A).all():
+        session.delete(a)
     for b in session.query(B).all():
         session.delete(b)
-    # map(session.delete, session.query(models.Operation))
     for op in session.query(models.Operation).all():
         session.delete(op)
-    # map(session.delete, session.query(models.Version))
     for ver in session.query(models.Version).all():
         session.delete(ver)
 
