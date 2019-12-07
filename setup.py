@@ -7,5 +7,5 @@ setup(name='dbsync',
       author='Bint',
       packages=['dbsync', 'dbsync.client', 'dbsync.server', 'dbsync.messages'],
       description='Centralized database synchronization for SQLAlchemy',
-      install_requires=['sqlalchemy>=0.8.0', 'requests'],
+      install_requires=['sqlalchemy>=1.3.0', 'requests', 'nose'],
       license='MIT',)

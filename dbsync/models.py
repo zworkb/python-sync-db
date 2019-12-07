@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship, backref, validates
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.declarative.api import DeclarativeMeta
 
+from dbsync.dialects import GUID
 from dbsync.lang import *
 from dbsync.utils import get_pk, query_model, properties_dict
 from dbsync.logs import get_logger
@@ -30,7 +31,7 @@ Base = declarative_base(metaclass=PrefixTables)
 
 
 class ContentType(Base):
-    "A weak abstraction over a database table."
+    """A weak abstraction over a database table."""
 
     __tablename__ = "content_types"
 
@@ -103,7 +104,8 @@ class Operation(Base):
 
     __tablename__ = "operations"
 
-    row_id = Column(Integer)
+    # row_id = Column(Integer)
+    row_id = Column(GUID)
     version_id = Column(
         Integer,
         ForeignKey(Version.__tablename__ + ".version_id"),
