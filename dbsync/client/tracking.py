@@ -68,7 +68,12 @@ def make_listener(command):
         if command == 'u' and not core.SessionClass.object_session(target).\
                 is_modified(target, include_collections=False):
             return
-        tname = mapper.mapped_table.name
+        try:
+            tname = mapper.mapped_table.name
+        except Exception as e:
+            # breakpoint()
+            tname = mapper.mapped_table.right.name
+
         if tname not in core.synched_models.tables:
             logging.error("you must track a mapped class to table {0} "\
                               "to log operations".format(tname))

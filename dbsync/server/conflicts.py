@@ -4,6 +4,7 @@
 """
 
 from sqlalchemy.schema import UniqueConstraint
+from sqlalchemy.sql import Join
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, class_mapper, query_model, column_properties
@@ -28,7 +29,13 @@ def find_unique_conflicts(push_message, session):
                       if op.command != 'd'):
         if model is None: continue
 
-        for constraint in [c for c in class_mapper(model).mapped_table.constraints if isinstance(c, UniqueConstraint)]:
+        mt = class_mapper(model).mapped_table
+        if isinstance(mt, Join):
+            constraints = mt.left.constraints.union(mt.right.constraints)
+        else:
+            constraints = mt.constraints
+
+        for constraint in [c for c in constraints if isinstance(c, UniqueConstraint)]:
 
             unique_columns = tuple(col.name for col in constraint.columns)
             remote_obj = push_message.query(model).\

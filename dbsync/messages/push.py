@@ -4,7 +4,7 @@ Push message and related.
 
 import datetime
 import hashlib
-
+import uuid
 from sqlalchemy import types
 from dbsync.utils import (
     properties_dict,
@@ -121,7 +121,10 @@ class PushMessage(BaseMessage):
     def _portion(self):
         "Returns part of this message as a string."
         portion = "".join("&{0}#{1}#{2}".\
-                              format(op.row_id, op.content_type_id, op.command)
+                              format(
+                                    "%.32x" % int(op.row_id) if isinstance(op.row_id, uuid.UUID) else op.row_id,
+                                    op.content_type_id,
+                                    op.command)
                           for op in self.operations)
         return portion
 
@@ -142,8 +145,9 @@ class PushMessage(BaseMessage):
         if self.key is None or self.node_id is None: return False
         node = session.query(Node).filter(Node.node_id == self.node_id).first()
         text = node.secret + self._portion()
+        digest = hashlib.sha512(text.encode("utf-8")).hexdigest()
         return node is not None and \
-            self.key == hashlib.sha512(text.encode("utf-8")).hexdigest()
+            self.key == digest
 
     @session_closing
     def add_unversioned_operations(self, session=None, include_extensions=True):

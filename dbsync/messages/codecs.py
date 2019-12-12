@@ -6,11 +6,29 @@
 import datetime
 import base64
 import decimal
+import json
+import uuid
 
+import rfc3339
 from sqlalchemy import types
 from dbsync import core
 from dbsync.lang import *
 from dbsync.utils import types_dict as bare_types_dict
+
+def uuidstr(uuid):
+    return str(uuid).replace("-", "").lower()
+
+
+class SyncdbJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        # if isinstance(obj, np.ndarray):
+        #     return obj.tolist()
+        if isinstance(obj, datetime.datetime):
+            return rfc3339.rfc3339(obj)
+        if isinstance(obj, uuid.UUID):
+            return uuidstr(obj)
+        return json.JSONEncoder.default(self, list(obj))
+
 
 
 def types_dict(class_):

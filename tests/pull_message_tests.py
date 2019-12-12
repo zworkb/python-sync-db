@@ -5,6 +5,7 @@ import json
 
 from dbsync.lang import *
 from dbsync import models, core
+from dbsync.messages.codecs import SyncdbJSONEncoder
 from dbsync.messages.pull import PullMessage
 
 from tests.models import A, B, Session
@@ -55,7 +56,10 @@ def test_create_message():
     message = PullMessage()
     version = session.query(models.Version).first()
     message.add_version(version)
-    assert message.to_json() == PullMessage(message.to_json()).to_json()
+    message_json = message.to_json()
+    pullmessage_json = PullMessage(message_json).to_json()
+
+    assert message_json == pullmessage_json
 
 
 @with_setup(setup, teardown)
@@ -65,7 +69,8 @@ def test_encode_message():
     message = PullMessage()
     version = session.query(models.Version).first()
     message.add_version(version)
-    assert message.to_json() == json.loads(json.dumps(message.to_json()))
+    msg_json = json.dumps(message.to_json(), cls=SyncdbJSONEncoder)
+    assert message.to_json() == json.loads(msg_json)
 
 
 @with_setup(setup, teardown)

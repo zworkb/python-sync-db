@@ -14,6 +14,8 @@ import io
 import inspect
 import json
 
+from dbsync.messages.codecs import SyncdbJSONEncoder
+
 
 class NetworkError(Exception):
     pass
@@ -82,7 +84,8 @@ def post_request(server_url, json_dict,
     auth = authentication_callback(server_url) \
         if authentication_callback is not None else None
     try:
-        r = requests.post(server_url, data=enc(json_dict),
+        data = enc(json_dict, cls=SyncdbJSONEncoder)
+        r = requests.post(server_url, data=data,
                           headers=hhs or None, stream=stream,
                           timeout=tout, auth=auth)
         response = None

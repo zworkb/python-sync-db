@@ -34,7 +34,7 @@ class ObjectType(object):
             self.__pk__ == other.__pk__
 
     def __hash__(self):
-        return self.__pk__
+        return hash(self.__pk__)
 
     def to_dict(self):
         return dict((k, getattr(self, k)) for k in self.__keys__)
@@ -146,7 +146,8 @@ class BaseMessage(object):
         class_ = type(obj)
         classname = class_.__name__
         obj_set = self.payload.get(classname, set())
-        if ObjectType(classname, getattr(obj, get_pk(class_))) in obj_set:
+        objt = ObjectType(classname, getattr(obj, get_pk(class_)))
+        if objt in obj_set:
             return self
         properties = properties_dict(obj)
         if include_extensions:

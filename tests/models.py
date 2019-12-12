@@ -1,9 +1,11 @@
 import datetime
+import uuid
 
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+from dbsync.dialects import GUID
 from dbsync.utils import generate_secret
 import dbsync
 from dbsync import client, models
@@ -21,7 +23,7 @@ Base = declarative_base()
 class A(Base):
     __tablename__ = "test_a"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String)
 
     def __repr__(self):
@@ -32,9 +34,9 @@ class A(Base):
 class B(Base):
     __tablename__ = "test_b"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String)
-    a_id = Column(Integer, ForeignKey("test_a.id"))
+    a_id = Column(GUID, ForeignKey("test_a.id"))
 
     a = relationship(A, backref="bs")
 

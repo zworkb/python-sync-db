@@ -17,6 +17,7 @@ horizontally decentralized relational databases. `Link to pdf`__.
 from sqlalchemy import or_
 from sqlalchemy.orm import undefer
 from sqlalchemy.schema import UniqueConstraint
+from sqlalchemy.sql import Join
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, class_mapper, query_model, column_properties
@@ -106,6 +107,7 @@ def find_direct_conflicts(pull_ops, unversioned_ops):
     object. This procedure relies on the uniqueness of the primary
     keys through time.
     """
+    print("find_direct_conflicts:", pull_ops, unversioned_ops)
     return [
         (pull_op, local_op)
         for pull_op in pull_ops
@@ -224,7 +226,13 @@ def find_unique_conflicts(pull_ops, unversioned_ops, pull_message, session):
     for op in pull_ops:
         model = op.tracked_model
 
-        for constraint in [c for c in class_mapper(model).mapped_table.constraints if isinstance(c, UniqueConstraint)]:
+        mt = class_mapper(model).mapped_table
+        if isinstance(mt, Join):
+            constraints = mt.left.constraints.union(mt.right.constraints)
+        else:
+            constraints = mt.constraints
+
+        for constraint in [c for c in constraints if isinstance(c, UniqueConstraint)]:
 
             unique_columns = tuple(col.name for col in constraint.columns)
             # Unique values on the server, to check conflicts with local database
