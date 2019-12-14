@@ -388,7 +388,7 @@ def with_transaction(include_extensions=True):
                 kwargs.update({'session': session})
                 result = proc(*args, **kwargs)
                 session.commit()
-            except:
+            except Exception as e:
                 session.rollback()
                 raise
             finally:

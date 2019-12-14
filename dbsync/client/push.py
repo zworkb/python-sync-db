@@ -3,6 +3,7 @@ Push message and related operations.
 """
 
 import datetime
+from typing import Dict, Any
 
 from dbsync.lang import *
 from dbsync import core
@@ -22,16 +23,20 @@ suggests_pull = None
 
 
 @core.with_transaction()
-def request_push(push_url,
+def request_push(push_url: str,
                  extra_data=None,
                  encode=None, decode=None, headers=None, timeout=None,
                  extensions=True,
-                 session=None):
+                 session=None) -> Dict[str, Any]:
     message = PushMessage()
     message.latest_version_id = core.get_latest_version_id(session=session)
     compress(session=session)
     message.add_unversioned_operations(
         session=session, include_extensions=extensions)
+
+    if not message.operations:
+        return {}
+
     message.set_node(session.query(Node).order_by(Node.node_id.desc()).first())
 
     data = message.to_json()

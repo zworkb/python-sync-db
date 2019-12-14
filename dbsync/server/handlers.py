@@ -15,8 +15,9 @@ tasked to send the HTTP response).
 """
 
 import datetime
+from typing import Optional, Dict, Any
 
-from sqlalchemy.orm import make_transient
+from sqlalchemy.orm import make_transient, Session
 
 from dbsync.lang import *
 from dbsync.utils import (
@@ -141,7 +142,7 @@ after_push = EventRegister()
 
 
 @core.with_transaction()
-def handle_push(data, session=None):
+def handle_push(data: Dict[str, Any], session: Optional[Session] = None) -> Dict[str, int]:
     """
     Handle the push request and return a dictionary object to be sent
     back to the node.
@@ -152,7 +153,7 @@ def handle_push(data, session=None):
     *data* must be a dictionary-like object, usually the product of
     parsing a JSON string.
     """
-    message = None
+    message: PushMessage
     try:
         message = PushMessage(data)
     except KeyError:
@@ -169,7 +170,8 @@ def handle_push(data, session=None):
             raise PullSuggested(exc)
         raise PushRejected(exc)
     if not message.operations:
-        raise PushRejected("message doesn't contain operations")
+        return {}
+        # raise PushRejected("message doesn't contain operations")
     if not message.islegit(session):
         raise PushRejected("message isn't properly signed")
 

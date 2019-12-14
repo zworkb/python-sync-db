@@ -5,6 +5,9 @@ Push message and related.
 import datetime
 import hashlib
 import uuid
+from typing import List, Dict, Any, Optional
+
+from dbsync.dialects import GUID
 from sqlalchemy import types
 from dbsync.utils import (
     properties_dict,
@@ -50,24 +53,24 @@ class PushMessage(BaseMessage):
     """
 
     #: Datetime of creation
-    created = None
+    created: datetime.datetime
 
     #: Node primary key
-    node_id = None
+    node_id: GUID
 
     #: Secret used internally to mitigate obnoxiousness.
-    _secret = None
+    _secret: str
 
     #: Key to this message
-    key = None
+    key: Optional[str] = None
 
     #: The latest version
-    latest_version_id = None
+    latest_version_id: int
 
     #: List of unversioned operations
-    operations = None
+    operations: List[Operation]
 
-    def __init__(self, raw_data=None):
+    def __init__(self, raw_data: Dict[str, Any] = None) -> None:
         """
         *raw_data* must be a python dictionary. If not given, the
         message will be empty and should be filled after
@@ -87,10 +90,10 @@ class PushMessage(BaseMessage):
         self.latest_version_id = decode(types.Integer())(
             data['latest_version_id'])
         self.operations = list(map(partial(object_from_dict, Operation),
-                              list(map(decode_dict(Operation), data['operations']))))
+                                   list(map(decode_dict(Operation), data['operations']))))
 
     def query(self, model):
-        "Returns a query object for this message."
+        """Returns a query object for this message."""
         return MessageQuery(
             model,
             dict(
@@ -115,39 +118,43 @@ class PushMessage(BaseMessage):
         encoded['latest_version_id'] = encode(types.Integer())(
             self.latest_version_id)
         encoded['operations'] = list(map(encode_dict(Operation),
-                                    list(map(properties_dict, self.operations))))
+                                         list(map(properties_dict, self.operations))))
         return encoded
 
-    def _portion(self):
-        "Returns part of this message as a string."
-        portion = "".join("&{0}#{1}#{2}".\
-                              format(
-                                    "%.32x" % int(op.row_id) if isinstance(op.row_id, uuid.UUID) else op.row_id,
-                                    op.content_type_id,
-                                    op.command)
+    def _portion(self) -> str:
+        """Returns part of this message as a string."""
+        portion = "".join("&{0}#{1}#{2}". \
+                          format(
+            "%.32x" % int(op.row_id) if isinstance(op.row_id, uuid.UUID) else op.row_id,
+            op.content_type_id,
+            op.command)
                           for op in self.operations)
         return portion
 
-    def _sign(self):
+    def _sign(self) -> None:
         if self._secret is not None:
             text = self._secret + self._portion()
             self.key = hashlib.sha512(text.encode("utf-8")).hexdigest()
 
     def set_node(self, node):
-        "Sets the node and key for this message."
-        if node is None: return
+        """Sets the node and key for this message."""
+        if node is None:
+            return
         self.node_id = node.node_id
         self._secret = node.secret
         self._sign()
 
     def islegit(self, session):
-        "Checks whether the key for this message is proper."
-        if self.key is None or self.node_id is None: return False
-        node = session.query(Node).filter(Node.node_id == self.node_id).first()
+        """Checks whether the key for this message is proper."""
+        if self.key is None or self.node_id is None:
+            return False
+        node: Optional[Node] = session.query(Node).filter(Node.node_id == self.node_id).first()
+        if node is None:
+            raise LookupError(f"node with id {self.node_id} not found")
         text = node.secret + self._portion()
         digest = hashlib.sha512(text.encode("utf-8")).hexdigest()
         return node is not None and \
-            self.key == digest
+               self.key == digest
 
     @session_closing
     def add_unversioned_operations(self, session=None, include_extensions=True):
@@ -155,12 +162,12 @@ class PushMessage(BaseMessage):
         Adds all unversioned operations to this message, including the
         required objects for them to be performed.
         """
-        operations = session.query(Operation).\
+        operations = session.query(Operation). \
             filter(Operation.version_id == None).all()
         if any(op.content_type_id not in synched_models.ids
                for op in operations):
-            raise ValueError("version includes operation linked "\
-                                 "to model not currently being tracked")
+            raise ValueError("version includes operation linked " \
+                             "to model not currently being tracked")
         required_objects = {}
         for op in operations:
             model = op.tracked_model

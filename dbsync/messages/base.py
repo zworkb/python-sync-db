@@ -3,16 +3,17 @@ Base functionality for synchronization messages.
 """
 
 import inspect
+from typing import Dict, Any, Union
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, properties_dict, construct_bare
-from dbsync.core import null_model, synched_models, model_extensions
+from dbsync.core import null_model, synched_models, model_extensions, SQLClass
 from dbsync import models
 from dbsync.messages.codecs import decode_dict, encode_dict
 
 
 class ObjectType(object):
-    "Wrapper for tracked objects."
+    """Wrapper for tracked objects."""
 
     def __init__(self, mname, pk, **kwargs):
         self.__model_name__ = mname
@@ -31,7 +32,7 @@ class ObjectType(object):
         if not isinstance(other, ObjectType):
             raise TypeError("not an instance of ObjectType")
         return self.__model_name__ == other.__model_name__ and \
-            self.__pk__ == other.__pk__
+               self.__pk__ == other.__pk__
 
     def __hash__(self):
         return hash(self.__pk__)
@@ -40,7 +41,7 @@ class ObjectType(object):
         return dict((k, getattr(self, k)) for k in self.__keys__)
 
     def to_mapped_object(self):
-        model = synched_models.model_names.\
+        model = synched_models.model_names. \
             get(self.__model_name__, null_model).model
         if model is None:
             raise TypeError(
@@ -52,9 +53,11 @@ class ObjectType(object):
 
 
 class MessageQuery(object):
-    "Query over internal structure of a message."
+    """Query over internal structure of a message."""
+    target: str
+    payload: Dict[str, Any]
 
-    def __init__(self, target, payload):
+    def __init__(self, target: Union[SQLClass, str], payload):
         if target == models.Operation or \
                 target == models.Version or \
                 target == models.Node:
@@ -88,7 +91,7 @@ class MessageQuery(object):
             dict(self.payload, **{self.target: list(filter(predicate, to_filter))}))
 
     def __iter__(self):
-        "Yields objects mapped to their original type (*target*)."
+        """Yields objects mapped to their original type (*target*)."""
         m = identity if self.target.startswith('models.') \
             else method('to_mapped_object')
         lst = self.payload.get(self.target, None)
@@ -97,7 +100,7 @@ class MessageQuery(object):
                 yield e
 
     def all(self):
-        "Returns a list of all queried objects."
+        """Returns a list of all queried objects."""
         return list(self)
 
     def first(self):
@@ -105,44 +108,50 @@ class MessageQuery(object):
         Returns the first of the queried objects, or ``None`` if no
         objects matched.
         """
-        try: return next(iter(self))
-        except StopIteration: return None
+        try:
+            return next(iter(self))
+        except StopIteration:
+            return None
 
 
 class BaseMessage(object):
     "The base type for messages with a payload."
 
     #: dictionary of (model name, set of wrapped objects)
-    payload = None
+    payload: Dict[str, Any]
 
-    def __init__(self, raw_data=None):
+    def __init__(self, raw_data: Dict[str, Any] = None):
         self.payload = {}
         if raw_data is not None:
             self._from_raw(raw_data)
 
     def _from_raw(self, data):
-        getm = lambda k: synched_models.model_names.get(k, null_model).model
-        for k, v, m in [k_v_m for k_v_m in [(k_v[0], k_v[1], getm(k_v[0])) for k_v in iter(list(data['payload'].items()))] if k_v_m[2] is not None]:
+
+        def getm(k):
+            return synched_models.model_names.get(k, null_model).model
+
+        for k, v, m in [k_v_m for k_v_m in
+                        [(k_v[0], k_v[1], getm(k_v[0])) for k_v in iter(list(data['payload'].items()))] if
+                        k_v_m[2] is not None]:
             self.payload[k] = set(
                 [ObjectType(k, dict_[get_pk(m)], **dict_) for dict_ in map(decode_dict(m), v)])
 
     def query(self, model):
-        "Returns a query object for this message."
+        """Returns a query object for this message."""
         return MessageQuery(model, self.payload)
 
-    def to_json(self):
-        "Returns a JSON-friendly python dictionary."
-        encoded = {}
-        encoded['payload'] = {}
+    def to_json(self) -> Dict[str, Any]:
+        """Returns a JSON-friendly python dictionary."""
+        encoded: Dict[str, Any] = {'payload': {}}
         for k, objects in list(self.payload.items()):
             model = synched_models.model_names.get(k, null_model).model
             if model is not None:
                 encoded['payload'][k] = list(map(encode_dict(model),
-                                            list(map(method('to_dict'), objects))))
+                                                 list(map(method('to_dict'), objects))))
         return encoded
 
     def add_object(self, obj, include_extensions=True):
-        "Adds an object to the message, if it's not already in."
+        """Adds an object to the message, if it's not already in."""
         class_ = type(obj)
         classname = class_.__name__
         obj_set = self.payload.get(classname, set())
@@ -155,6 +164,6 @@ class BaseMessage(object):
                 _, loadfn, _, _ = ext
                 properties[field] = loadfn(obj)
         obj_set.add(ObjectType(
-                classname, getattr(obj, get_pk(class_)), **properties))
+            classname, getattr(obj, get_pk(class_)), **properties))
         self.payload[classname] = obj_set
         return self
