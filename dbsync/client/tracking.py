@@ -11,7 +11,8 @@ from typing import Optional, Callable, Deque
 from dbsync.core import SQLClass
 from sqlalchemy import event
 from sqlalchemy.engine import Connection
-from sqlalchemy.orm.session import Session as GlobalSession
+from sqlalchemy.orm import Mapper
+from sqlalchemy.orm.session import Session as GlobalSession, Session
 
 from dbsync import core
 from dbsync.models import Operation
@@ -57,26 +58,33 @@ def empty_queue(*args):
         _operations_queue.pop()
 
 
-def make_listener(command: str) -> Callable[[SQLClass, Connection, SQLClass], Optional[Operation]]:
+def make_listener(command: str) -> Callable[[Mapper, Connection, SQLClass], Optional[Operation]]:
     """Builds a listener for the given command (i, u, d)."""
 
-    def listener(mapper: SQLClass, connection: Connection, target: SQLClass) -> Optional[Operation]:
-        return add_operation(command, mapper, target)
+    def listener(mapper: Mapper, connection: Connection, target: SQLClass) -> Optional[Operation]:
+        return _add_operation(command, mapper, target)
 
     return listener
-    # return functools.partial(add_operation, command)
 
 
-def add_operation(command: str, mapper: SQLClass, target: SQLClass) -> Optional[Operation]:
-    if getattr(core.SessionClass.object_session(target),
+def add_operation(command: str, target: SQLClass, session: Optional[Session]) -> Optional[Operation]:
+    return _add_operation(command, target.__mapper__, target, session)
+
+
+def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Optional[Session] = None) -> Optional[Operation]:
+    if session is None:
+        session = core.SessionClass.object_session(target)
+    if getattr(session,
                core.INTERNAL_SESSION_ATTR,
                False):
         return None
+
     if not core.listening:
         logger.warning("dbsync is disabled; "
                        "aborting listener to '{0}' command".format(command))
         return None
-    if command == 'u' and not core.SessionClass.object_session(target).\
+
+    if command == 'u' and not session.\
             is_modified(target, include_collections=False):
         return None
 

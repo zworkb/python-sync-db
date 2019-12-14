@@ -17,7 +17,7 @@ from sqlalchemy import Table, Column
 
 logging.getLogger('dbsync').addHandler(logging.NullHandler())
 
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Mapper
 from sqlalchemy.engine import Engine
 
 from dbsync.lang import *
@@ -97,11 +97,11 @@ def committing_context():
 
 #: The internal use mode, used to prevent client-server module
 #  collision. Possible values are 'modeless', 'client', 'server'.
-mode = 'modeless'
+mode: str = 'modeless'
 
 
 #: The engine used for database connections.
-_engine = None
+_engine: Optional[Engine] = None
 
 
 def set_engine(engine):
@@ -115,6 +115,11 @@ def set_engine(engine):
     _engine = engine
 
 
+def get_engine() -> Engine:
+    global _engine
+    return _engine
+
+
 class ConfigurationError(Exception): pass
 
 def get_engine():
@@ -125,12 +130,13 @@ def get_engine():
 
 
 class SQLClass(Protocol):
-    def __init__(self):
-        self.primary_key = None
 
     """duck typing for sqlalchemy content class"""
     __table__: Table
+    __tablename__: str
     __name__: str
+    __mapper__: Mapper
+
     mapped_table: Union[Table, Join]
     primary_key: Tuple[Column, ...]
 
@@ -172,7 +178,10 @@ def table_id(tablename: str) -> Optional[int]:
     returns the id of a given table
     this is needed for referencing the table from sync_oberations
     """
-    return synched_models.tables[tablename].id
+    if tablename in synched_models.tables:
+        return synched_models.tables[tablename].id
+    else:
+        return None
 
 
 def tracked_model(operation: Operation) -> Optional[SQLClass]:
