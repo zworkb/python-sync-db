@@ -6,6 +6,12 @@ import zlib
 import inspect
 import contextlib
 import logging
+from dataclasses import dataclass, field
+from typing import Dict, Optional
+from typing_extensions import Protocol
+
+from sqlalchemy import Table
+
 logging.getLogger('dbsync').addHandler(logging.NullHandler())
 
 from sqlalchemy.orm import sessionmaker
@@ -115,45 +121,77 @@ def get_engine():
     return _engine
 
 
-class tracked_record(object):
+# class tracked_record(object):
+#
+#     def __setattr__(self, *args):
+#         raise AttributeError("'tracked_record' object is immutable")
+#     __delattr__ = __setattr__
+#
+#     def __init__(self, model=None, id=None):
+#         super(tracked_record, self).__setattr__('model', model)
+#         super(tracked_record, self).__setattr__('id', id)
 
-    def __setattr__(self, *args):
-        raise AttributeError("'tracked_record' object is immutable")
-    __delattr__ = __setattr__
 
-    def __init__(self, model=None, id=None):
-        super(tracked_record, self).__setattr__('model', model)
-        super(tracked_record, self).__setattr__('id', id)
+class SQLClass(Protocol):
+    """duck typing for sqlalchemy content class"""
+    __table__: Table
+    __name__: str
+
+
+@dataclass(frozen=True)
+class tracked_record:
+    model: Optional[SQLClass] = None
+    id: Optional[int] = None
 
 null_model = tracked_record()
 
-def install(self, model):
-    """
-    Installs the model in synched_models, indexing by class, class
-    name, table name and content_type_id.
-    """
-    ct_id = make_content_type_id(model)
-    tname = model.__table__.name
-    record = tracked_record(model=model, id=ct_id)
-    self.model_names[model.__name__] = record
-    self.models[model] = record
-    self.tables[tname] = record
-    self.ids[ct_id] = record
 
-#: Set of classes marked for synchronization and change tracking.
-synched_models = type(
-    'synched_models',
-    (object,),
-    {'tables': dict(),
-     'models': dict(),
-     'model_names': dict(),
-     'ids': dict(),
-     'install': install})()
+
+
+# #: Set of classes marked for synchronization and change tracking.
+# synched_models = type(
+#     'synched_models',
+#     (object,),
+#     {'tables': dict(),
+#      'models': dict(),
+#      'model_names': dict(),
+#      'ids': dict(),
+#      'install': install})()
+
+@dataclass
+class SyncedModels:
+    tables: Dict[str, tracked_record] = field(default_factory=dict)
+    models: Dict[SQLClass, tracked_record] = field(default_factory=dict)
+    ids: Dict[int, tracked_record] = field(default_factory=dict)
+    model_names: Dict[str, tracked_record] = field(default_factory=dict)
+
+    def install(self, model: SQLClass) -> None:
+        """
+        Installs the model in synched_models, indexing by class, class
+        name, table name and content_type_id.
+        """
+        ct_id = make_content_type_id(model)
+        tname = model.__table__.name
+        record = tracked_record(model=model, id=ct_id)
+        self.model_names[model.__name__] = record
+        self.models[model] = record
+        self.tables[tname] = record
+        self.ids[ct_id] = record
+
+synched_models = SyncedModels()
+
+def table_id(tablename: str) -> Optional[int]:
+    """
+    returns the id of a given table
+    this is needed for referencing the table from sync_oberations
+    """
+    return synched_models.tables[tablename].id
 
 
 def tracked_model(operation):
     "Get's the tracked model (SA mapped class) for this operation."
     return synched_models.ids.get(operation.content_type_id, null_model).model
+
 # Injects synched models lookup into the Operation class.
 Operation.tracked_model = property(tracked_model)
 
