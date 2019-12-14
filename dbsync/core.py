@@ -7,12 +7,13 @@ import inspect
 import contextlib
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set, Tuple, Union, Type, Any, Callable
+from typing import Dict, Optional, Set, Tuple, Union, Type, Any, Callable, List
 
+from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
 from typing_extensions import Protocol
 
-from sqlalchemy import Table
+from sqlalchemy import Table, Column
 
 logging.getLogger('dbsync').addHandler(logging.NullHandler())
 
@@ -124,9 +125,14 @@ def get_engine():
 
 
 class SQLClass(Protocol):
+    def __init__(self):
+        self.primary_key = None
+
     """duck typing for sqlalchemy content class"""
     __table__: Table
     __name__: str
+    mapped_table: Union[Table, Join]
+    primary_key: Tuple[Column, ...]
 
 
 @dataclass(frozen=True)

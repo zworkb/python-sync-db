@@ -6,6 +6,7 @@ import logging
 import inspect
 import warnings
 from collections import deque
+from typing import Optional, Callable, Deque
 
 from dbsync.core import SQLClass
 from sqlalchemy import event
@@ -26,7 +27,7 @@ core.mode = 'client'
 
 
 #: Operations to be flushed to the database after a commit.
-_operations_queue = deque()
+_operations_queue: Deque[Operation] = deque()
 
 
 def flush_operations(committed_session):
@@ -56,23 +57,28 @@ def empty_queue(*args):
         _operations_queue.pop()
 
 
-def make_listener(command):
-    "Builds a listener for the given command (i, u, d)."
-    return functools.partial(add_operation, command)
+def make_listener(command: str) -> Callable[[SQLClass, Connection, SQLClass], Optional[Operation]]:
+    """Builds a listener for the given command (i, u, d)."""
+
+    def listener(mapper: SQLClass, connection: Connection, target: SQLClass) -> Optional[Operation]:
+        return add_operation(command, mapper, target)
+
+    return listener
+    # return functools.partial(add_operation, command)
 
 
-def add_operation(command: str, mapper: SQLClass, connection: Connection, target: SQLClass) -> Operation:
+def add_operation(command: str, mapper: SQLClass, target: SQLClass) -> Optional[Operation]:
     if getattr(core.SessionClass.object_session(target),
                core.INTERNAL_SESSION_ATTR,
                False):
-        return
+        return None
     if not core.listening:
         logger.warning("dbsync is disabled; "
                        "aborting listener to '{0}' command".format(command))
-        return
+        return None
     if command == 'u' and not core.SessionClass.object_session(target).\
             is_modified(target, include_collections=False):
-        return
+        return None
 
     mt = mapper.mapped_table
     if isinstance(mt, Join):
@@ -83,7 +89,8 @@ def add_operation(command: str, mapper: SQLClass, connection: Connection, target
     if tname not in core.synched_models.tables:
         logging.error("you must track a mapped class to table {0} "\
                           "to log operations".format(tname))
-        return
+        return None
+
     pk = getattr(target, mapper.primary_key[0].name)
     op = Operation(
         row_id=pk,
