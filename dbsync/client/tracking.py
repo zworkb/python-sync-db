@@ -13,7 +13,7 @@ from sqlalchemy.orm.session import Session as GlobalSession
 from dbsync import core
 from dbsync.models import Operation
 from dbsync.logs import get_logger
-
+from sqlalchemy.sql import Join
 
 logger = get_logger(__name__)
 
@@ -68,11 +68,12 @@ def make_listener(command):
         if command == 'u' and not core.SessionClass.object_session(target).\
                 is_modified(target, include_collections=False):
             return
-        try:
-            tname = mapper.mapped_table.name
-        except Exception as e:
-            # breakpoint()
+
+        mt = mapper.mapped_table
+        if isinstance(mt, Join):
             tname = mapper.mapped_table.right.name
+        else:
+            tname = mapper.mapped_table.name
 
         if tname not in core.synched_models.tables:
             logging.error("you must track a mapped class to table {0} "\

@@ -11,3 +11,7 @@ a second try for the sync which should be idempotent fails due to duplicate keys
 
 when nothing has changed and the push set is empty the push is rejected
 
+## Remove unnecessary SA objects
+
+- check if the table `sync_content_types` is really used and delete it if it
+is superfluous
