@@ -7,7 +7,9 @@ import inspect
 import contextlib
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Set, Tuple, Union, Type, Any, Callable
+
+from sqlalchemy.sql.type_api import TypeEngine
 from typing_extensions import Protocol
 
 from sqlalchemy import Table
@@ -121,17 +123,6 @@ def get_engine():
     return _engine
 
 
-# class tracked_record(object):
-#
-#     def __setattr__(self, *args):
-#         raise AttributeError("'tracked_record' object is immutable")
-#     __delattr__ = __setattr__
-#
-#     def __init__(self, model=None, id=None):
-#         super(tracked_record, self).__setattr__('model', model)
-#         super(tracked_record, self).__setattr__('id', id)
-
-
 class SQLClass(Protocol):
     """duck typing for sqlalchemy content class"""
     __table__: Table
@@ -145,18 +136,6 @@ class tracked_record:
 
 null_model = tracked_record()
 
-
-
-
-# #: Set of classes marked for synchronization and change tracking.
-# synched_models = type(
-#     'synched_models',
-#     (object,),
-#     {'tables': dict(),
-#      'models': dict(),
-#      'model_names': dict(),
-#      'ids': dict(),
-#      'install': install})()
 
 @dataclass
 class SyncedModels:
@@ -178,7 +157,9 @@ class SyncedModels:
         self.tables[tname] = record
         self.ids[ct_id] = record
 
+
 synched_models = SyncedModels()
+
 
 def table_id(tablename: str) -> Optional[int]:
     """
@@ -188,27 +169,47 @@ def table_id(tablename: str) -> Optional[int]:
     return synched_models.tables[tablename].id
 
 
-def tracked_model(operation):
+def tracked_model(operation: Operation) -> Optional[SQLClass]:
     "Get's the tracked model (SA mapped class) for this operation."
     return synched_models.ids.get(operation.content_type_id, null_model).model
+
 
 # Injects synched models lookup into the Operation class.
 Operation.tracked_model = property(tracked_model)
 
 
 #: Set of classes in *synched_models* that are subject to pull handling.
-pulled_models = set()
+pulled_models: Set[SQLClass] = set()
 
 
 #: Set of classes in *synched_models* that are subject to push handling.
-pushed_models = set()
+pushed_models: Set[SQLClass] = set()
 
+Extension = Dict[
+    str,
+    Tuple[
+        TypeEngine,
+        Callable[[SQLClass], Any],
+        Callable[[SQLClass, Any], None],
+        Optional[Callable[[SQLClass, SQLClass], None]]
+    ]]
+
+Extensions = Dict[
+    str,
+    Extension
+]
 
 #: Extensions to tracked models.
-model_extensions = {}
+model_extensions: Extensions = {}
 
 
-def extend(model, fieldname, fieldtype, loadfn, savefn, deletefn=None):
+def extend(
+        model: SQLClass,
+        fieldname: str,
+        fieldtype: Union[Type[TypeEngine], TypeEngine],
+        loadfn: Callable[[SQLClass], Any],
+        savefn: Callable[[SQLClass, Any], None],
+        deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None):
     """
     Extends *model* with a field of name *fieldname* and type
     *fieldtype*.
@@ -243,10 +244,10 @@ def extend(model, fieldname, fieldtype, loadfn, savefn, deletefn=None):
     assert inspect.isroutine(savefn), "save function must be a callable"
     assert deletefn is None or inspect.isroutine(deletefn),\
         "delete function must be a callable"
-    extensions = model_extensions.get(model.__name__, {})
-    type_ = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
-    extensions[fieldname] = (type_, loadfn, savefn, deletefn)
-    model_extensions[model.__name__] = extensions
+    extension: Extension = model_extensions.get(model.__name__, {})
+    type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
+    extension[fieldname] = (type_, loadfn, savefn, deletefn)
+    model_extensions[model.__name__] = extension
 
 
 def _has_extensions(obj):
