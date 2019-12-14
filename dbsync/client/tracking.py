@@ -1,13 +1,15 @@
 """
 Listeners to SQLAlchemy events to keep track of CUD operations.
 """
-
+import functools
 import logging
 import inspect
 import warnings
 from collections import deque
 
+from dbsync.core import SQLClass
 from sqlalchemy import event
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm.session import Session as GlobalSession
 
 from dbsync import core
@@ -56,37 +58,41 @@ def empty_queue(*args):
 
 def make_listener(command):
     "Builds a listener for the given command (i, u, d)."
-    def listener(mapper, connection, target):
-        if getattr(core.SessionClass.object_session(target),
-                   core.INTERNAL_SESSION_ATTR,
-                   False):
-            return
-        if not core.listening:
-            logger.warning("dbsync is disabled; "
-                           "aborting listener to '{0}' command".format(command))
-            return
-        if command == 'u' and not core.SessionClass.object_session(target).\
-                is_modified(target, include_collections=False):
-            return
+    return functools.partial(add_operation, command)
 
-        mt = mapper.mapped_table
-        if isinstance(mt, Join):
-            tname = mapper.mapped_table.right.name
-        else:
-            tname = mapper.mapped_table.name
 
-        if tname not in core.synched_models.tables:
-            logging.error("you must track a mapped class to table {0} "\
-                              "to log operations".format(tname))
-            return
-        pk = getattr(target, mapper.primary_key[0].name)
-        op = Operation(
-            row_id=pk,
-            version_id=None, # operation not yet versioned
-            content_type_id=core.synched_models.tables[tname].id,
-            command=command)
-        _operations_queue.append(op)
-    return listener
+def add_operation(command: str, mapper: SQLClass, connection: Connection, target: SQLClass) -> Operation:
+    if getattr(core.SessionClass.object_session(target),
+               core.INTERNAL_SESSION_ATTR,
+               False):
+        return
+    if not core.listening:
+        logger.warning("dbsync is disabled; "
+                       "aborting listener to '{0}' command".format(command))
+        return
+    if command == 'u' and not core.SessionClass.object_session(target).\
+            is_modified(target, include_collections=False):
+        return
+
+    mt = mapper.mapped_table
+    if isinstance(mt, Join):
+        tname = mapper.mapped_table.right.name
+    else:
+        tname = mapper.mapped_table.name
+
+    if tname not in core.synched_models.tables:
+        logging.error("you must track a mapped class to table {0} "\
+                          "to log operations".format(tname))
+        return
+    pk = getattr(target, mapper.primary_key[0].name)
+    op = Operation(
+        row_id=pk,
+        version_id=None, # operation not yet versioned
+        content_type_id=core.synched_models.tables[tname].id,
+        command=command)
+    _operations_queue.append(op)
+
+    return op
 
 
 def _start_tracking(model, directions):
