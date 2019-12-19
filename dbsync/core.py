@@ -13,9 +13,9 @@ from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
 
 try:
-    from typing_extensions import Protocol  # backward compat
-except ImportError:
     from typing import Protocol
+except ImportError:
+    from typing import _Protocol as Protocol
 
 from sqlalchemy import Table, Column
 
