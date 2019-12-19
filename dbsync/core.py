@@ -11,7 +11,11 @@ from typing import Dict, Optional, Set, Tuple, Union, Type, Any, Callable, List
 
 from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
-from typing_extensions import Protocol
+
+try:
+    from typing_extensions import Protocol  # backward compat
+except ImportError:
+    from typing import Protocol
 
 from sqlalchemy import Table, Column
 
