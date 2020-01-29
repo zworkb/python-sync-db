@@ -47,8 +47,8 @@ def _defaults(encode, decode, headers, timeout):
     if not isinstance(t, (int, float)):
         raise ValueError("timeout must be a number")
     if t <= 0:
-        t = None # Non-positive values are interpreted as no timeout
-    return (e, d, h, t)
+        t = None  # Non-positive values are interpreted as no timeout
+    return e, d, h, t
 
 
 def post_request(server_url, json_dict,
