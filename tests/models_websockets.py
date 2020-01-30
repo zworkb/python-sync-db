@@ -58,18 +58,22 @@ def start_ws_server(**kw):
     dbsync.create_all()
     server = SyncServer(port=PORT, engine=engine_server, **kw)
     print("starting server...")
-    server.start(run_forever=True, start_new_loop=True)
+    server.start(run_forever=False, start_new_loop=True)
     print("server finished")
     return server
 
 @pytest.fixture(scope="function")
-def server():
+def sync_server():
     pool = mp.Pool()
     task = pool.apply_async(start_ws_server)
-    task.wait()
+    # task.wait()
 
     return task
 
+
+@pytest.fixture(scope="function")
+def sync_client():
+    ...
 
 # Base.metadata.create_all(engine)
 # dbsync.set_engine(engine)

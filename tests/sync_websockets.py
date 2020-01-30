@@ -6,7 +6,7 @@ from dbsync import models, core
 from dbsync.messages.push import PushMessage
 
 from tests.models import A, B, Session
-from tests.models_websockets import server
+from tests.models_websockets import sync_server, sync_client
 
 
 def addstuff():
@@ -42,5 +42,7 @@ def teardown():
         session.delete(op)
     session.commit()
 
-def test_server_start(server):
-    print("server is:", server)
+
+def test_server_start(sync_server):
+    print("server is:", sync_server)
+    sync_server.wait()
