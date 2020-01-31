@@ -75,4 +75,4 @@ def test_server_start(sync_server, sync_client):
         print("answer recv:", resp)
 
     sync_client.connect(action=action, do_wait=True)
-    sync_server.wait()
+    # sync_server.wait()
