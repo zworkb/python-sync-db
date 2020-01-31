@@ -60,7 +60,6 @@ async def counter(conn: Connection):
 
 @pytest.mark.asyncio
 async def test_server_only(sync_server):
-    await asyncio.sleep(1)
     async with websockets.connect(f"ws://localhost:{PORT}/counter") as ws:
         await ws.send("5")
         async for resp in ws:

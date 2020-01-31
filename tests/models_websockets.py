@@ -67,7 +67,7 @@ def start_ws_server(**kw):
     server.started_thead_event.wait()
     print("server ready in thread")
 
-    return server
+    return "OK"
 
 
 @pytest.fixture(scope="function")
@@ -78,8 +78,8 @@ def sync_server():
         print(f"ignore non existing file {server_db}")
     pool = mp.Pool()
     task = pool.apply_async(start_ws_server)
-    # task.wait()
-
+    task.wait()
+    print("taskready:", task.get())
     yield task
 
 
