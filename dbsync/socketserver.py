@@ -2,7 +2,7 @@ import asyncio
 
 import threading
 import uuid
-from asyncio import Future, Task
+from asyncio import Future, Task, Event
 from dataclasses import dataclass, field, InitVar
 from sys import stdout
 from typing import Optional, Set, Callable, Coroutine, Any, ClassVar, Dict, Type, Union
@@ -96,7 +96,8 @@ class GenericWSServer(object):
     """here the handler functions can be registered"""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     stopper: Optional[Future] = None
-    started: bool = False
+    started_event: Event = field(default_factory=Event)
+    started_thead_event: threading.Event = field(default_factory=threading.Event)
     connections: Set[Connection] = field(default_factory=set)
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     exception: Optional[Exception] = None
@@ -163,7 +164,8 @@ class GenericWSServer(object):
         return wrapped
 
     def _on_started(self):
-        self.started = True
+        self.started_event.set()
+        self.started_thead_event.set()
         self.thread = threading.current_thread()
         # self.on_started()
 
@@ -172,6 +174,7 @@ class GenericWSServer(object):
 
     async def start_async(self):
         """use this one if you are already in async land"""
+
         try:
             async with websockets.serve(self.service, self.host, self.port) as self.server:
                 self._on_started()
