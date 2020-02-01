@@ -5,6 +5,7 @@ This is vulnerable to many things if used by itself. It should at
 least be used over HTTPS and with some sort of user authentication
 layer on the server.
 """
+from typing import Dict, Optional
 
 from dbsync import core
 from dbsync.models import Node
@@ -16,7 +17,7 @@ class RegisterRejected(Exception): pass
 
 
 @core.with_transaction()
-def register(registry_url, extra_data=None,
+def register(registry_url, extra_data: Optional[Dict]=None,
              encode=None, decode=None, headers=None, timeout=None,
              session=None):
     """

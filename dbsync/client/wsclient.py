@@ -14,3 +14,9 @@ class SyncClient(GenericWSClient):
     def __post_init__(self):
         if not self.Session:
             self.Session = sessionmaker(bind=self.engine)
+
+    def request_push(self):
+        ...
+
+    async def push(self):
+        ...

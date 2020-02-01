@@ -19,9 +19,7 @@ from dbsync import client, models
 
 server_db = "./test_server.db"
 client_db = "./test_client.db"
-engine_server = create_engine(f"sqlite:///{server_db}")
-engine_client = create_engine(f"sqlite:///{client_db}")
-# engine = create_engine("sqlite://")
+
 
 PORT = 7081
 SERVER_URL=f"ws://localhost:{PORT}/"
@@ -78,7 +76,7 @@ def sync_server():
         print(f"ignore non existing file {server_db}")
     pool = mp.Pool()
     task = pool.apply_async(start_ws_server)
-    task.wait()
+    # task.wait()
     print("taskready:", task.get())
     yield task
 
@@ -86,7 +84,7 @@ def sync_server():
 @pytest.fixture(scope="function")
 def sync_client(sync_server):
     engine_client = create_engine("sqlite:///./test_client.db")
-    Base.metadata.create_all(engine_server)
+    Base.metadata.create_all(engine_client)
     dbsync.set_engine(engine_client)
     dbsync.create_all()
     client = SyncClient(port=PORT, path="sync", engine=engine_client)
