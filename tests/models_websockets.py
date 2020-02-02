@@ -15,7 +15,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from dbsync.dialects import GUID
 from dbsync.utils import generate_secret
 import dbsync
-from dbsync import client, models
+from dbsync import client, models, core
 
 server_db = "./test_server.db"
 client_db = "./test_client.db"
@@ -53,43 +53,38 @@ class B(Base):
             self.id, self.name, self.a_id)
 
 
-def start_ws_server(**kw):
-    engine_server = create_engine("sqlite:///./test_server.db")
-    Base.metadata.create_all(engine_server)
-    dbsync.set_engine(engine_server)
-    dbsync.create_all()
-    server = SyncServer(port=PORT, engine=engine_server, **kw)
-    print("starting server...")
-    # server.start(run_forever=False, start_new_loop=True)
-    server.start_in_thread()
-    server.started_thead_event.wait()
-    print("server ready in thread")
+def addstuff(Session: sessionmaker):
+    a1 = A(name="first a")
+    a2 = A(name="second a")
+    b1 = B(name="first b", a=a1)
+    b2 = B(name="second b", a=a1)
+    b3 = B(name="third b", a=a2)
+    session = Session()
+    session.add_all([a1, a2, b1, b2, b3])
+    session.commit()
 
-    return "OK"
+def changestuff(Session: sessionmaker):
+    session = Session()
+    a1, a2 = session.query(A).all()
+    b1, b2, b3 = session.query(B).all()
+    a1.name = "first a modified"
+    b2.a = a2
+    session.delete(b3)
+    session.commit()
 
+def setup():
+    pass
 
-@pytest.fixture(scope="function")
-def sync_server():
-    try:
-        os.remove(server_db)
-    except FileNotFoundError:
-        print(f"ignore non existing file {server_db}")
-    pool = mp.Pool()
-    task = pool.apply_async(start_ws_server)
-    # task.wait()
-    print("taskready:", task.get())
-    yield task
-
-
-@pytest.fixture(scope="function")
-def sync_client(sync_server):
-    engine_client = create_engine("sqlite:///./test_client.db")
-    Base.metadata.create_all(engine_client)
-    dbsync.set_engine(engine_client)
-    dbsync.create_all()
-    client = SyncClient(port=PORT, path="sync", engine=engine_client)
-    # client.connect()
-    return client
+@core.with_listening(False)
+def teardown(Session: sessionmaker):
+    session = Session()
+    for a in session.query(A).all():
+        session.delete(a)
+    for b in session.query(B).all():
+        session.delete(b)
+    for op in session.query(models.Operation).all():
+        session.delete(op)
+    session.commit()
 
 
 # Base.metadata.create_all(engine)

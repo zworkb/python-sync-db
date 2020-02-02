@@ -44,8 +44,12 @@ class GenericWSClient:
         return self.websocket is not None
 
     @property
+    def base_uri(self):
+        return f"ws://{self.host}:{self.port}"
+
+    @property
     def uri(self):
-        return f"ws://{self.host}:{self.port}/{self.path}"
+        return f"{self.base_uri}/{self.path}"
 
     async def connect_async(self, action: SocketAction = None):
         print(f"before connecting to {self.uri}")

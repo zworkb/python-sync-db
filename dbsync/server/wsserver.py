@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
+from dbsync import server
 from dbsync.socketserver import GenericWSServer, Connection
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
@@ -12,6 +13,8 @@ from sqlalchemy.orm import sessionmaker
 
 logger = create_logger("dbsync-server")
 
+class SyncServerConnection(Connection):
+    ...
 
 @dataclass
 class SyncServer(GenericWSServer):
@@ -21,7 +24,6 @@ class SyncServer(GenericWSServer):
     def __post_init__(self):
         if not self.Session:
             self.Session = sessionmaker(bind=self.engine)
-
 
 
 @SyncServer.handler("/sync")
@@ -50,3 +52,17 @@ async def status(connection: Connection):
     await connection.socket.send(
         json.dumps(res)
     )
+
+@SyncServer.handler("/register", SyncServerConnection)
+async def register(conn: SyncServerConnection):
+    print(f"conn:{conn}")
+    params = json.loads(await conn.socket.recv())
+    print(f"register: {params}")
+
+    res = server.handle_register()
+    await conn.socket.send(json.dumps(res))
+
+
+    # return (json.dumps(server.handle_register()),
+    #         200,
+    #         {"Content-Type": "application/json"})
