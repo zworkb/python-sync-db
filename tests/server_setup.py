@@ -44,9 +44,9 @@ def sync_server():
         print(f"ignore non existing file {server_db}")
 
     with mp.Pool() as pool:
-        task: ApplyResult = pool.apply_async(start_ws_server)
-        task.wait()
-        yield task
+        res: ApplyResult = pool.apply_async(start_ws_server)
+        res.wait()
+        yield res
 
 
 
