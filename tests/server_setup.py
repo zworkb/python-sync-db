@@ -1,4 +1,7 @@
 import os
+from datetime import time
+from time import sleep as tsleep
+from multiprocessing.pool import ApplyResult
 
 import dbsync
 import pytest
@@ -40,10 +43,20 @@ def sync_server():
     except FileNotFoundError:
         print(f"ignore non existing file {server_db}")
     pool = mp.Pool()
-    task = pool.apply_async(start_ws_server)
+    print("+++++++++++++++++++++++++++++++++++starting async")
+    task: ApplyResult = pool.apply_async(start_ws_server)
     # task.wait()
-    print("taskready:", task.get())
+
+    print("************************************taskready:", task.get())
     yield task
+
+    # we have to actively shutdown the pool in order to avoid "address in use" when running
+    # multiple tests sequentially
+    pool.close()
+    print("pool state before:", pool._state)
+    tsleep(.1)
+    print("pool state after:", pool._state)
+
 
 
 @pytest.fixture(scope="function")

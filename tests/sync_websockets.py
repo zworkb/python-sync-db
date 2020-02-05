@@ -17,7 +17,7 @@ from dbsync.socketserver import Connection
 from tests.models_websockets import SERVER_URL, addstuff, changestuff
 from .models_websockets import PORT
 from .server_setup import sync_server, server_session
-from .client_setup import sync_client
+from .client_setup import sync_client, client_session
 
 
 @SyncServer.handler("/counter")
@@ -49,7 +49,7 @@ def test_server_start(sync_server, sync_client):
 
 
 @pytest.mark.asyncio
-async def test_register(sync_server, sync_client, server_session: sqlalchemy.orm.session.Session):
+async def test_register(sync_server, sync_client, server_session: sqlalchemy.orm.session.Session, client_session):
     res = await sync_client.register()
 
     sync_nodes = sync_client.Session().query(Node).all()
@@ -73,14 +73,34 @@ async def test_tracking_add(sync_server, sync_client):
 
 
 @pytest.mark.asyncio
-async def test_tracking_add_change(sync_server, sync_client, server_session):
-    sess = sync_client.Session()
-    print("SESS:", sess.__class__)
+async def test_tracking_add_change(sync_server, sync_client, server_session, client_session):
     addstuff(sync_client.Session)
     changestuff(sync_client.Session)
 
-    ops = sess.query(Operation).all()
+    ops = client_session.query(Operation).all()
 
     assert len(ops) == 8
 
+
+# @pytest.mark.asyncio
+@pytest.mark.parametrize("do_compress", [False, True])
+def test_push_message(sync_client, client_session, do_compress):
+    # await asyncio.sleep(1)
+    addstuff(sync_client.Session)
+    changestuff(sync_client.Session)
+
+    msg: PushMessage = sync_client.create_push_message(do_compress=do_compress)
+
+    print(f"push_message:{msg}")
+
+    for op in msg.operations:
+        print(f"op: {op}")
+
+
+@pytest.mark.asyncio
+async def test_push(sync_server, sync_client, server_session, client_session):
+    addstuff(sync_client.Session)
+
+    client_ops = client_session.query(Operation).all()
+    assert len(client_ops) == 5
 

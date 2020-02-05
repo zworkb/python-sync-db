@@ -17,7 +17,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 # @core.with_transaction()
-def register(registry_url, extra_data: Optional[Dict]=None,
+def register(registry_url, extra_data: Optional[Dict] = None,
              encode=None, decode=None, headers=None, timeout=None,
              session=None):
     """
@@ -62,9 +62,9 @@ class SyncClient(GenericWSClient):
         return f"{self.base_uri}/register"
 
     @core.with_transaction()
-    async def register(self, extra_data: Optional[Dict]=None,
-             encode=None, decode=None, headers=None, timeout=None,
-             session=None):
+    async def register(self, extra_data: Optional[Dict] = None,
+                       encode=None, decode=None, headers=None, timeout=None,
+                       session=None):
         async with websockets.connect(self.register_url) as ws:
             #  TODO:conv to strings, parse the params at server side
             params = dict(
@@ -83,24 +83,33 @@ class SyncClient(GenericWSClient):
             session.commit()
             return resp
 
-    async def push(self, session:  Optional[sqlalchemy.orm.session.Session]=None):
+    def create_push_message(self, session: Optional[sqlalchemy.orm.session.Session] = None,
+                            extensions=True, do_compress=True) -> PushMessage:
+
+        # TODO: mit do_compress=True muss noch getestet werden, welche Szenarien die referentielle Integritaet
+        # verletzen koennen. Denn wenn die Tabellen in richtiger Reihenfolge synchronisiert werden
+        # koennte man auf das Aussetzen der RI verzichten
+
         if not session:
-            session = self.Session()   # TODO: p
+            session = self.Session()  # TODO: p
 
         message = PushMessage()
         message.latest_version_id = core.get_latest_version_id(session=session)
-        compress(session=session)
+        if do_compress:
+            compress(session=session)
         message.add_unversioned_operations(
             session=session, include_extensions=extensions)
+
+        return message
+
+    async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
+        if not session:
+            session = self.Session()  # TODO: p
+
+        message = self.create_push_message()
 
         if not message.operations:
             return {}
 
-
-
-
-
-
     def request_push(self):
         ...
-
