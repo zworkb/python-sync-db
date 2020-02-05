@@ -2,10 +2,16 @@ import os
 
 import dbsync
 import pytest
+from dbsync import client
 from dbsync.client.wsclient import SyncClient
 from sqlalchemy import create_engine
 
 from .models_websockets import Base, PORT, SERVER_URL, server_db, client_db, A, B
+
+
+def register_client_tracking():
+    client.track(A)
+    client.track(B)
 
 
 @pytest.fixture(scope="function")
@@ -20,6 +26,8 @@ def sync_client(sync_server):
     dbsync.set_engine(engine_client)
     dbsync.create_all()
 
-    client = SyncClient(port=PORT, path="sync", engine=engine_client)
+    register_client_tracking()
+
+    clientws = SyncClient(port=PORT, path="sync", engine=engine_client)
     # client.connect()
-    return client
+    return clientws

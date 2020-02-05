@@ -1,11 +1,15 @@
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import Optional, Dict
 
+import sqlalchemy
 import websockets
 from dbsync import core
+from dbsync.client.compression import compress
 from dbsync.client.net import post_request
 from dbsync.client.register import RegisterRejected
+from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
 from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
@@ -75,7 +79,23 @@ class SyncClient(GenericWSClient):
 
             message = RegisterMessage(resp)
             session.add(message.node)
+
+            session.commit()
             return resp
+
+    async def push(self, session:  Optional[sqlalchemy.orm.session.Session]=None):
+        if not session:
+            session = self.Session()   # TODO: p
+
+        message = PushMessage()
+        message.latest_version_id = core.get_latest_version_id(session=session)
+        compress(session=session)
+        message.add_unversioned_operations(
+            session=session, include_extensions=extensions)
+
+        if not message.operations:
+            return {}
+
 
 
 
@@ -84,5 +104,3 @@ class SyncClient(GenericWSClient):
     def request_push(self):
         ...
 
-    async def push(self):
-        ...

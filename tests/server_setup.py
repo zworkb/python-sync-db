@@ -3,9 +3,19 @@ import os
 import dbsync
 import pytest
 import multiprocessing as mp
+
+import sqlalchemy
+from dbsync import server
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import create_engine
-from .models_websockets import Base, PORT, SERVER_URL, server_db
+from sqlalchemy.orm import sessionmaker
+
+from .models_websockets import Base, PORT, SERVER_URL, server_db, A, B
+
+
+def register_server_tracking():
+    server.track(A)
+    server.track(B)
 
 
 def start_ws_server(**kw):
@@ -34,4 +44,17 @@ def sync_server():
     # task.wait()
     print("taskready:", task.get())
     yield task
+
+
+@pytest.fixture(scope="function")
+def server_session() -> sqlalchemy.orm.session.Session:
+    """
+    provides a session object to the server database for sync checking
+    """
+    engine_server = create_engine(f"sqlite:///{server_db}")
+    Session = sessionmaker(engine_server)
+    res = Session()
+
+    return res
+
 

@@ -4,17 +4,19 @@ import logging
 import json
 
 import pytest
+import sqlalchemy
 import websockets
 from dbsync import models, core
 from dbsync.client.wsclient import SyncClient
 from dbsync.messages.push import PushMessage
+from dbsync.models import Node, Operation
 from dbsync.server.wsserver import SyncServer
 from dbsync.socketserver import Connection
 
 
-from tests.models_websockets import  SERVER_URL
+from tests.models_websockets import SERVER_URL, addstuff, changestuff
 from .models_websockets import PORT
-from .server_setup import sync_server
+from .server_setup import sync_server, server_session
 from .client_setup import sync_client
 
 
@@ -45,8 +47,40 @@ def test_server_start(sync_server, sync_client):
     sync_client.connect(action=action, do_wait=True)
     # sync_server.wait()
 
+
 @pytest.mark.asyncio
-async def test_register(sync_server, sync_client):
+async def test_register(sync_server, sync_client, server_session: sqlalchemy.orm.session.Session):
     res = await sync_client.register()
 
+    sync_nodes = sync_client.Session().query(Node).all()
+    assert len(sync_nodes) == 1
     print(f"REGISTERED:{res}")
+
+    server_nodes = server_session.query(Node).all()
+
+    # after registration there should be one node in the server database
+    assert len(server_nodes) == 1
+
+
+@pytest.mark.asyncio
+async def test_tracking_add(sync_server, sync_client):
+    sess = sync_client.Session()
+    addstuff(sync_client.Session)
+
+    ops = sess.query(Operation).all()
+
+    assert len(ops) == 5
+
+
+@pytest.mark.asyncio
+async def test_tracking_add_change(sync_server, sync_client, server_session):
+    sess = sync_client.Session()
+    print("SESS:", sess.__class__)
+    addstuff(sync_client.Session)
+    changestuff(sync_client.Session)
+
+    ops = sess.query(Operation).all()
+
+    assert len(ops) == 8
+
+
