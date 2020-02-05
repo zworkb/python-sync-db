@@ -83,9 +83,9 @@ async def test_tracking_add_change(sync_server, sync_client, server_session, cli
 
 
 # @pytest.mark.asyncio
-@pytest.mark.parametrize("do_compress", [False, True])
-def test_push_message(sync_client, client_session, do_compress):
-    # await asyncio.sleep(1)
+@pytest.mark.parametrize("compress_info", [(False, 8), (True, 4)])
+def test_push_message(sync_client, client_session, compress_info):
+    do_compress, N = compress_info
     addstuff(sync_client.Session)
     changestuff(sync_client.Session)
 
@@ -95,6 +95,8 @@ def test_push_message(sync_client, client_session, do_compress):
 
     for op in msg.operations:
         print(f"op: {op}")
+
+    assert len(msg.operations) == N
 
 
 @pytest.mark.asyncio
