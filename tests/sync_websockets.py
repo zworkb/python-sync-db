@@ -17,7 +17,7 @@ from dbsync.socketserver import Connection
 from tests.models_websockets import SERVER_URL, addstuff, changestuff
 from .models_websockets import PORT
 from .server_setup import sync_server, server_session
-from .client_setup import sync_client, client_session
+from .client_setup import sync_client, client_session, sync_client_registered
 
 
 @SyncServer.handler("/counter")
@@ -55,6 +55,18 @@ async def test_register(sync_server, sync_client, server_session: sqlalchemy.orm
     sync_nodes = sync_client.Session().query(Node).all()
     assert len(sync_nodes) == 1
     print(f"REGISTERED:{res}")
+
+    server_nodes = server_session.query(Node).all()
+
+    # after registration there should be one node in the server database
+    assert len(server_nodes) == 1
+
+@pytest.mark.asyncio
+async def test_registered(sync_server, sync_client_registered,
+                          server_session: sqlalchemy.orm.session.Session, client_session):
+
+    sync_nodes = sync_client_registered.Session().query(Node).all()
+    assert len(sync_nodes) == 1
 
     server_nodes = server_session.query(Node).all()
 
@@ -100,9 +112,17 @@ def test_push_message(sync_client, client_session, compress_info):
 
 
 @pytest.mark.asyncio
-async def test_push(sync_server, sync_client, server_session, client_session):
+async def test_push(sync_server, sync_client_registered, server_session, client_session):
+    addstuff(sync_client_registered.Session)
+    # sync_client.register()
+    # sync_client.connect()
+    nodes=client_session.query(Node).all()
+    print(f"NODES:{nodes}")
+    assert len(nodes) == 1
+    await sync_client_registered.connect_async()
+
+
+def test_push11(sync_client, server_session, client_session):
     addstuff(sync_client.Session)
 
-    client_ops = client_session.query(Operation).all()
-    assert len(client_ops) == 5
-
+    # sync_client.connect()

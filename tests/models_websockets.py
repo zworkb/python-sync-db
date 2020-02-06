@@ -72,8 +72,6 @@ def changestuff(Session: sessionmaker):
     session.delete(b3)
     session.commit()
 
-def setup():
-    pass
 
 @core.with_listening(False)
 def teardown(Session: sessionmaker):

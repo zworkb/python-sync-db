@@ -46,9 +46,9 @@ def sync_server():
     with mp.Pool() as pool:
         res: ApplyResult = pool.apply_async(start_ws_server)
         res.wait()
-        yield res
-
-
+        yield res.get()  # that runs well, but makes prolems with pydevd
+    print("tear down")
+    return res.get()
 
 @pytest.fixture(scope="function")
 def server_session() -> sqlalchemy.orm.session.Session:

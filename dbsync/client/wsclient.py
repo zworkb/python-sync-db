@@ -9,8 +9,10 @@ from dbsync import core
 from dbsync.client.compression import compress
 from dbsync.client.net import post_request
 from dbsync.client.register import RegisterRejected
+from dbsync.messages.codecs import encode_dict, SyncdbJSONEncoder
 from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
+from dbsync.models import Node
 from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -81,7 +83,12 @@ class SyncClient(GenericWSClient):
             session.add(message.node)
 
             session.commit()
+
+
+            assert len(session.query(Node).all()) > 0
             return resp
+
+
 
     def create_push_message(self, session: Optional[sqlalchemy.orm.session.Session] = None,
                             extensions=True, do_compress=True) -> PushMessage:
@@ -103,13 +110,27 @@ class SyncClient(GenericWSClient):
         return message
 
     async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
-        if not session:
-            session = self.Session()  # TODO: p
-
         message = self.create_push_message()
+
+        if not session:
+            session = self.Session()
+
+        node = session.query(Node).order_by(Node.node_id.desc()).first()
+        message.set_node(node)  # TODO to should be migrated to GUID and ordered by creation date
+
+        message_json = message.to_json(include_operations=False)
+        # message_encoded = encode_dict(PushMessage)(message_json)
+        message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
+        await self.websocket.send(message_encoded)
+        res = await self.websocket.recv()
+        print("RES:", res)
+
 
         if not message.operations:
             return {}
 
     def request_push(self):
         ...
+
+    async def run(self):
+        return await self.push()

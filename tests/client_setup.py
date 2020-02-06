@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import dbsync
@@ -17,7 +18,7 @@ def register_client_tracking():
 
 
 @pytest.fixture(scope="function")
-def sync_client(sync_server):
+def sync_client():
     try:
         os.remove(client_db)
     except FileNotFoundError:
@@ -33,6 +34,12 @@ def sync_client(sync_server):
     clientws = SyncClient(port=PORT, path="sync", engine=engine_client)
     # client.connect()
     return clientws
+
+@pytest.fixture(scope="function")
+def sync_client_registered(sync_client):
+
+    asyncio.run(sync_client.register())
+    return sync_client
 
 
 @pytest.fixture(scope="function")

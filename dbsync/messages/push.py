@@ -100,7 +100,7 @@ class PushMessage(BaseMessage):
                 self.payload,
                 **{'models.Operation': self.operations}))
 
-    def to_json(self):
+    def to_json(self, include_operations=True):
         """
         Returns a JSON-friendly python dictionary. Structure::
 
@@ -117,8 +117,9 @@ class PushMessage(BaseMessage):
         encoded['key'] = encode(types.String())(self.key)
         encoded['latest_version_id'] = encode(types.Integer())(
             self.latest_version_id)
-        encoded['operations'] = list(map(encode_dict(Operation),
-                                         list(map(properties_dict, self.operations))))
+        if include_operations:
+            encoded['operations'] = list(map(encode_dict(Operation),
+                                             list(map(properties_dict, self.operations))))
         return encoded
 
     def _portion(self) -> str:
