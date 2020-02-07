@@ -130,7 +130,7 @@ class GenericWSServer(object):
                 exdict = exception_as_dict(e)
                 reason=json.dumps(exdict)[:123]
                 await connection.socket.close(code=1001, reason=reason)
-                # raise
+                raise
         except Exception as e:
             logger.exception(f"exception occurred in service: {e}")
             raise
