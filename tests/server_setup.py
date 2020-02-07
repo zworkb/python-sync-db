@@ -33,7 +33,7 @@ def start_ws_server(**kw):
     server.started_thead_event.wait()
     print("server ready in thread")
 
-    return "OK"
+    return PORT
 
 
 @pytest.fixture(scope="function")

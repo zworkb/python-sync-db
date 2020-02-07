@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import threading
 import uuid
@@ -10,6 +11,7 @@ from typing import Optional, Set, Callable, Coroutine, Any, ClassVar, Dict, Type
 import websockets
 
 from .createlogger import create_logger
+from .wscommon import exception_as_dict
 
 logger = create_logger(__name__)
 
@@ -122,7 +124,13 @@ class GenericWSServer(object):
             connection = hdef.connection_class(self, socket, path)
             self.connections.add(connection)
             await self.on_add_connection(connection)
-            await handler(connection)
+            try:
+                await handler(connection)
+            except Exception as e:
+                exdict = exception_as_dict(e)
+                reason=json.dumps(exdict)[:123]
+                await connection.socket.close(code=1001, reason=reason)
+                # raise
         except Exception as e:
             logger.exception(f"exception occurred in service: {e}")
             raise

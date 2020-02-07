@@ -90,7 +90,7 @@ class PushMessage(BaseMessage):
         self.latest_version_id = decode(types.Integer())(
             data['latest_version_id'])
         self.operations = list(map(partial(object_from_dict, Operation),
-                                   list(map(decode_dict(Operation), data['operations']))))
+                                   list(map(decode_dict(Operation), data.get('operations',[])))))
 
     def query(self, model):
         """Returns a query object for this message."""

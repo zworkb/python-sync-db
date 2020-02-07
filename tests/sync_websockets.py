@@ -11,6 +11,7 @@ from dbsync.client.wsclient import SyncClient
 from dbsync.messages.push import PushMessage
 from dbsync.models import Node, Operation
 from dbsync.server.wsserver import SyncServer
+from dbsync.socketclient import GenericWSClient
 from dbsync.socketserver import Connection
 
 
@@ -26,6 +27,24 @@ async def counter(conn: Connection):
 
     for i in range(n):
         await conn.socket.send(str(i))
+
+@SyncServer.handler("/fuckup")
+async def fuckup(conn: Connection):
+    """
+    provoke an exception
+    """
+    return 1/0
+    raise Exception("this was on purpose")
+
+@pytest.mark.asyncio
+async def test_fuckup(sync_server):
+    async def action(client: SyncClient):
+        print("ho!")
+
+    client = GenericWSClient(port=sync_server, path="fuckup")
+    res = await client.connect_async(action=action)
+
+
 
 
 @pytest.mark.asyncio

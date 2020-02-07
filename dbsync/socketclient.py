@@ -5,6 +5,7 @@ from typing import Optional, Callable, Coroutine, Any
 
 import websockets
 from .createlogger import create_logger
+from .wscommon import exception_from_dict
 
 SocketAction = Optional[
     Callable[
@@ -71,6 +72,10 @@ class GenericWSClient:
             self.exception = e
             raise
         finally:
+
+            if self.websocket.close_code == 1001:
+                raise exception_from_dict(self.websocket.close_reason)
+
             self.connection_event.set()
             await self.on_disconnect()
             logger.warn("connection closed")

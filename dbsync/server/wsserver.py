@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from dbsync import server
+from dbsync.messages.push import PushMessage
 from dbsync.socketserver import GenericWSServer, Connection
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
@@ -29,6 +30,8 @@ class SyncServer(GenericWSServer):
 @SyncServer.handler("/sync")
 async def sync(connection: Connection):
     async for msg in connection.socket:
+        pushmsg = PushMessage(json.loads(msg))
+        print(f"PUSHMSG:{pushmsg}")
         await connection.socket.send(f"answer is:{msg}")
 
 
