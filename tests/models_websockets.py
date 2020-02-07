@@ -56,11 +56,12 @@ class B(Base):
 def addstuff(Session: sessionmaker):
     a1 = A(name="first a")
     a2 = A(name="second a")
+    # a3 = A(name="third a")
     b1 = B(name="first b", a=a1)
     b2 = B(name="second b", a=a1)
     b3 = B(name="third b", a=a2)
     session = Session()
-    session.add_all([a1, a2, b1, b2, b3])
+    session.add_all([a1, a2,  b1, b2, b3])
     session.commit()
 
 def changestuff(Session: sessionmaker):

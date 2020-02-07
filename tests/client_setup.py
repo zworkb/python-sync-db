@@ -30,7 +30,10 @@ def sync_client():
     dbsync.create_all()
 
     register_client_tracking()
-
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError as e:
+        asyncio.set_event_loop(asyncio.new_event_loop())
     clientws = SyncClient(port=PORT, path="sync", engine=engine_client)
     # client.connect()
     return clientws

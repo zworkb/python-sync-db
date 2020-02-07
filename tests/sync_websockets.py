@@ -55,7 +55,7 @@ async def test_server_only(sync_server):
             print("COUNT:", resp)
 
 
-def test_server_start(sync_server, sync_client):
+def test_server_start(sync_server):
     print("server is:", sync_server)
 
     async def action(client: SyncClient):
@@ -63,7 +63,7 @@ def test_server_start(sync_server, sync_client):
         resp = await client.websocket.recv()
         print("answer recv:", resp)
 
-    sync_client.connect(action=action, do_wait=True)
+    GenericWSClient(port=sync_server).connect(action=action, do_wait=False)
     # sync_server.wait()
 
 

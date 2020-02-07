@@ -73,7 +73,7 @@ class GenericWSClient:
             raise
         finally:
 
-            if self.websocket.close_code == 1001:
+            if self.websocket and self.websocket.close_code == 1001:
                 raise exception_from_dict(self.websocket.close_reason)
 
             self.connection_event.set()

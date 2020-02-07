@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import time
 from time import sleep as tsleep
@@ -26,6 +27,12 @@ def start_ws_server(**kw):
     Base.metadata.create_all(engine_server)
     dbsync.set_engine(engine_server)
     dbsync.create_all()
+
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError as e:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
     server = SyncServer(port=PORT, engine=engine_server, **kw)
     print("starting server...")
     # server.start(run_forever=False, start_new_loop=True)
