@@ -47,7 +47,7 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
         msg_json = json.loads(msg)
         pushmsg = PushMessage(msg_json)
         print(f"PUSHMSG:{pushmsg}")
-        await connection.socket.send(f"answer is:{msg}")
+        # await connection.socket.send(f"answer is:{msg}")
         logger.warn(f"message key={pushmsg.key}")
         # logger.warn(f"message secret={pushmsg._secret}")
 
@@ -104,21 +104,21 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
         version = Version(created=datetime.datetime.now(), node_id=pushmsg.node_id)
         session.add(version)
 
-    # IV) insert the operations, discarding the 'order' column
-    for op in sorted(operations, key=attr('order')):
-        new_op = Operation()
-        for k in [k for k in properties_dict(op) if k != 'order']:
-            setattr(new_op, k, getattr(op, k))
-        session.add(new_op)
-        new_op.version = version
-        session.flush()
+        # IV) insert the operations, discarding the 'order' column
+        for op in sorted(operations, key=attr('order')):
+            new_op = Operation()
+            for k in [k for k in properties_dict(op) if k != 'order']:
+                setattr(new_op, k, getattr(op, k))
+            session.add(new_op)
+            new_op.version = version
+            session.flush()
 
-    for listener in after_push:
-        listener(session, pushmsg)
+        for listener in after_push:
+            listener(session, pushmsg)
 
-    # session.commit()
-    # return the new version id back to the node
-    return {'new_version_id': version.version_id}
+        # return the new version id back to the node
+        await connection.socket.send(str(version.version_id))
+        return {'new_version_id': version.version_id}
 
 @SyncServer.handler("/status")
 async def status(connection: Connection):

@@ -181,11 +181,8 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     await sync_client_registered.connect_async()
 
-    # breakpoint()
-    await asyncio.sleep(0.3)  # wait some time
     # check if stuff got trasmitted
     As=server_session.query(A).all()
-    # breakpoint()
     assert len(As) > 0
 
     Bs=server_session.query(B).all()
