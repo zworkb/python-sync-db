@@ -1,6 +1,6 @@
 import json
 import traceback
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, Type, Optional
 
 
 def exception_as_dict_recursive(ex):
@@ -40,6 +40,14 @@ def exception_as_dict(ex):
         )
 
 
+def register_exception(klass: Type, name: Optional[str]=None):
+    """
+    registers an exception so that it can be instanciated by exception_from_dict
+    """
+    if name is None:
+        name = klass.__name__
+
+    globals()[name] = klass
 
 def exception_from_dict(ex: Union[str, Dict[str, Any]]) -> Exception:
     """

@@ -78,7 +78,7 @@ class GenericWSClient:
 
             self.connection_event.set()
             await self.on_disconnect()
-            logger.warn("connection closed")
+            logger.warn(f"connection closed")
             self.connection_status = "disconnected"
             self.websocket = None
 

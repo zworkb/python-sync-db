@@ -2,7 +2,11 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
-from dbsync import server
+import sqlalchemy
+
+from dbsync import server, core
+from dbsync.client import PushRejected, PullSuggested
+from dbsync.core import with_transaction
 from dbsync.messages.push import PushMessage
 from dbsync.socketserver import GenericWSServer, Connection
 import sqlalchemy as sa
@@ -28,11 +32,30 @@ class SyncServer(GenericWSServer):
 
 
 @SyncServer.handler("/sync")
-async def sync(connection: Connection):
+@with_transaction()
+async def sync(connection: Connection, session: sqlalchemy.orm.Session):
     async for msg in connection.socket:
-        pushmsg = PushMessage(json.loads(msg))
+        msg_json = json.loads(msg)
+        pushmsg = PushMessage(msg_json)
         print(f"PUSHMSG:{pushmsg}")
         await connection.socket.send(f"answer is:{msg}")
+        logger.warn(f"message key={pushmsg.key}")
+        # logger.warn(f"message secret={pushmsg._secret}")
+
+        latest_version_id = core.get_latest_version_id(session=session)
+        if latest_version_id != pushmsg.latest_version_id:
+            exc = "version identifier isn't the latest one; "\
+                "given: %s" % pushmsg.latest_version_id
+            if latest_version_id is None:
+                raise PushRejected(exc)
+            if pushmsg.latest_version_id is None:
+                raise PullSuggested(exc)
+            if pushmsg.latest_version_id < latest_version_id:
+                raise PullSuggested(exc)
+            raise PushRejected(exc)
+
+        if not pushmsg.islegit(session):
+            raise PushRejected("message isn't properly signed")
 
 
 @SyncServer.handler("/status")

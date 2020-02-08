@@ -5,10 +5,12 @@ from typing import Optional, Dict
 
 import sqlalchemy
 import websockets
-from dbsync import core
+from dbsync import core, wscommon
+from dbsync.client import PushRejected, PullSuggested
 from dbsync.client.compression import compress
 from dbsync.client.net import post_request
 from dbsync.client.register import RegisterRejected
+from dbsync.createlogger import create_logger
 from dbsync.messages.codecs import encode_dict, SyncdbJSONEncoder
 from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
@@ -17,38 +19,10 @@ from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
+wscommon.register_exception(PushRejected)
+wscommon.register_exception(PullSuggested)
 
-# @core.with_transaction()
-def register(registry_url, extra_data: Optional[Dict] = None,
-             encode=None, decode=None, headers=None, timeout=None,
-             session=None):
-    """
-    Request a node registry from the server.
-
-    If there is already a node registered in the local database, it
-    won't be used for the following operations. Additional data can be
-    passed to the request by giving *extra_data*, a dictionary of
-    values.
-
-    By default, the *encode* function is ``json.dumps``, the *decode*
-    function is ``json.loads``, and the *headers* are appropriate HTTP
-    headers for JSON.
-    """
-    assert isinstance(registry_url, str), "registry url must be a string"
-    assert bool(registry_url), "registry url can't be empty"
-    if extra_data is not None:
-        assert isinstance(extra_data, dict), "extra data must be a dictionary"
-
-    code, reason, response = post_request(
-        registry_url, extra_data or {}, encode, decode, headers, timeout)
-
-    if (code // 100 != 2) or response is None:
-        raise RegisterRejected(code, reason, response)
-
-    message = RegisterMessage(response)
-    session.add(message.node)
-    return response
-
+logger = create_logger("wsclient")
 
 @dataclass
 class SyncClient(GenericWSClient):
@@ -111,13 +85,13 @@ class SyncClient(GenericWSClient):
 
     async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
         message = self.create_push_message()
-
         if not session:
             session = self.Session()
 
         node = session.query(Node).order_by(Node.node_id.desc()).first()
         message.set_node(node)  # TODO to should be migrated to GUID and ordered by creation date
-
+        logger.warn(f"message key={message.key}")
+        logger.warn(f"message secret={message._secret}")
         message_json = message.to_json(include_operations=False)
         # message_encoded = encode_dict(PushMessage)(message_json)
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
