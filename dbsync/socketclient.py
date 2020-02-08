@@ -76,9 +76,11 @@ class GenericWSClient:
             if self.websocket and self.websocket.close_code == 1001:
                 raise exception_from_dict(self.websocket.close_reason)
 
+            if self.websocket and self.websocket.close_code == 1006:
+                logger.error(f"connection terminated abnormally [1006], reason:{self.websocket.close_reason}")
             self.connection_event.set()
             await self.on_disconnect()
-            logger.warn(f"connection closed")
+            logger.warn(f"connection closed with code: {self.websocket.close_code}, reason:{self.websocket.close_reason}")
             self.connection_status = "disconnected"
             self.websocket = None
 

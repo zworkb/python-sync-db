@@ -54,30 +54,31 @@ async def test_fuckup(sync_server):
         res = await client.connect_async(action=action)
 
 
-@SyncServer.handler("/longrun")
-async def longrun(conn: Connection):
-    print("LONGRUN")
-    n = int(await conn.socket.recv())
-
-    for i in range(n):
-        print(f"sleeping for a second")
-        await asyncio.sleep(1)
-        # await conn.socket.ping()
-        # await conn.socket.send(str(i))
-        print(f"running for {i} seconds")
-
-    await conn.socket.send(f"waited for {n} ticks")
-
-@pytest.mark.asyncio
-async def test_longrun(sync_server):
-    async def action(client: GenericWSClient):
-        await client.websocket.send("60")
-
-        async for msg in client.websocket:
-            print(f"msg is:{msg}")
-
-    client = GenericWSClient(port=sync_server, path="longrun")
-    await client.connect_async(action=action)
+# @SyncServer.handler("/longrun")
+# async def longrun(conn: Connection):
+#     print("LONGRUN")
+#     n = int(await conn.socket.recv())
+#
+#     for i in range(n):
+#         print(f"sleeping for a second")
+#         await asyncio.sleep(1)
+#         # await conn.socket.ping()
+#         # await conn.socket.send(str(i))
+#         print(f"running for {i} seconds")
+#
+#     await conn.socket.send(f"waited for {n} ticks")
+#
+# @pytest.mark.asyncio
+# async def test_longrun(sync_server):
+#     async def action(client: GenericWSClient):
+#         await client.websocket.send("60")
+#
+#         # wenn ich nicht eine antwort erwarte, bricht die verbindung vorzeitig ab
+#         async for msg in client.websocket:
+#             print(f"msg is:{msg}")
+#
+#     client = GenericWSClient(port=sync_server, path="longrun")
+#     await client.connect_async(action=action)
 
 
 @pytest.mark.asyncio
@@ -112,6 +113,7 @@ async def test_register(sync_server, sync_client, server_session: sqlalchemy.orm
 
     # after registration there should be one node in the server database
     assert len(server_nodes) == 1
+
 
 @pytest.mark.asyncio
 async def test_registered(sync_server, sync_client_registered,

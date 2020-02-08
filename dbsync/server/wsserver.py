@@ -1,3 +1,4 @@
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import Optional
@@ -34,6 +35,8 @@ class SyncServer(GenericWSServer):
 @SyncServer.handler("/sync")
 @with_transaction()
 async def sync(connection: Connection, session: sqlalchemy.orm.Session):
+    # asyncio.ensure_future(keepalive(connection.socket))
+
     async for msg in connection.socket:
         msg_json = json.loads(msg)
         pushmsg = PushMessage(msg_json)
@@ -68,7 +71,7 @@ async def status(connection: Connection):
             dict(
                 xx=str(conn.__class__),
                 path=conn.path,
-                ip=conn.socket.host,
+                ip=conn.socket.remote_address[0],
                 port=conn.server.port
             )
             for conn in connection.server.connections

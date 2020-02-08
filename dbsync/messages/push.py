@@ -7,6 +7,7 @@ import hashlib
 import uuid
 from typing import List, Dict, Any, Optional
 
+from dbsync.createlogger import create_logger
 from dbsync.dialects import GUID
 from sqlalchemy import types
 from dbsync.utils import (
@@ -25,6 +26,8 @@ from dbsync.core import (
 from dbsync.models import Node, Operation
 from dbsync.messages.base import MessageQuery, BaseMessage
 from dbsync.messages.codecs import encode, encode_dict, decode, decode_dict
+
+logger = create_logger("push")
 
 
 class PushMessage(BaseMessage):
@@ -90,7 +93,7 @@ class PushMessage(BaseMessage):
         self.latest_version_id = decode(types.Integer())(
             data['latest_version_id'])
         self.operations = list(map(partial(object_from_dict, Operation),
-                                   list(map(decode_dict(Operation), data.get('operations',[])))))
+                                   list(map(decode_dict(Operation), data.get('operations', [])))))
 
     def query(self, model):
         """Returns a query object for this message."""
@@ -124,17 +127,23 @@ class PushMessage(BaseMessage):
 
     def _portion(self) -> str:
         """Returns part of this message as a string."""
-        portion = "".join("&{0}#{1}#{2}". \
-                          format(
-            "%.32x" % int(op.row_id) if isinstance(op.row_id, uuid.UUID) else op.row_id,
-            op.content_type_id,
-            op.command)
-                          for op in self.operations)
-        return portion
+        return str(self.created)
+
+        # have to disable the rest because the operations are sent seperately as websocket messages
+
+        # portion = "".join("&{0}#{1}#{2}". \
+        #                   format(
+        #     "%.32x" % int(op.row_id) if isinstance(op.row_id, uuid.UUID) else op.row_id,
+        #     op.content_type_id,
+        #     op.command)
+        #                   for op in self.operations)
+        # return portion
 
     def _sign(self) -> None:
         if self._secret is not None:
             text = self._secret + self._portion()
+            logger.warn(f"self._secret: {self._secret}")
+            logger.warn(f"self.portion: {self._portion()}")
             self.key = hashlib.sha512(text.encode("utf-8")).hexdigest()
 
     def set_node(self, node):
@@ -153,6 +162,9 @@ class PushMessage(BaseMessage):
         if node is None:
             raise LookupError(f"node with id {self.node_id} not found")
         text = node.secret + self._portion()
+        logger.warn(f"secret: {node.secret}")
+        logger.warn(f"_portion: {self._portion()}")
+
         digest = hashlib.sha512(text.encode("utf-8")).hexdigest()
         return node is not None and \
                self.key == digest
