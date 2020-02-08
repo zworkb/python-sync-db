@@ -127,17 +127,17 @@ class PushMessage(BaseMessage):
 
     def _portion(self) -> str:
         """Returns part of this message as a string."""
-        return str(self.created)
+        # return str(self.created)
 
         # have to disable the rest because the operations are sent seperately as websocket messages
 
-        # portion = "".join("&{0}#{1}#{2}". \
-        #                   format(
-        #     "%.32x" % int(op.row_id) if isinstance(op.row_id, uuid.UUID) else op.row_id,
-        #     op.content_type_id,
-        #     op.command)
-        #                   for op in self.operations)
-        # return portion
+        portion = "".join("&{0}#{1}#{2}". \
+                          format(
+            "%.32x" % int(op.row_id) if isinstance(op.row_id, uuid.UUID) else op.row_id,
+            op.content_type_id,
+            op.command)
+                          for op in self.operations)
+        return portion
 
     def _sign(self) -> None:
         if self._secret is not None:

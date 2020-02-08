@@ -1,5 +1,6 @@
 import json
 import traceback
+from json import JSONDecodeError
 from typing import Union, Dict, Any, Type, Optional
 
 
@@ -52,13 +53,21 @@ def register_exception(klass: Type, name: Optional[str]=None):
 def exception_from_dict(ex: Union[str, Dict[str, Any]]) -> Exception:
     """
     converts an error dict produced by server side to an exception
-    muss noch besser werden und ohne eval auskommen
+    muss noch besser werden und ohne eval auskommen.
+
+    Moegliche Loesung:
+    exception per key am server merken und mit einem seperaten request abholen
     """
-    exdict = json.loads(ex) if isinstance(ex, str) else ex
-    klassname = exdict['type'].replace("(", "").replace(")", "")
+
+    try:
+        exdict = json.loads(ex) if isinstance(ex, str) else ex
+        klassname = exdict['type'].replace("(", "").replace(")", "")
+        args = exdict["args"]
+    except JSONDecodeError as e:
+        args = [ex]
     try:
         klass = eval(klassname)
         res = klass(*exdict["args"])
         return res
     except Exception as e:
-        return Exception(*exdict["args"])
+        return Exception(*args)

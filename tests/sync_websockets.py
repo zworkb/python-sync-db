@@ -19,8 +19,8 @@ from dbsync.socketserver import Connection
 
 from tests.models_websockets import SERVER_URL, addstuff, changestuff, A, B
 from .models_websockets import PORT
-from .server_setup import sync_server, server_session
-from .client_setup import sync_client, client_session, sync_client_registered
+from .server_setup import sync_server, server_session, server_db
+from .client_setup import sync_client, client_session, sync_client_registered, client_db
 
 
 
@@ -181,6 +181,16 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     await sync_client_registered.connect_async()
 
+    # breakpoint()
+    await asyncio.sleep(0.3)  # wait some time
+    # check if stuff got trasmitted
+    As=server_session.query(A).all()
+    # breakpoint()
+    assert len(As) > 0
+
+    Bs=server_session.query(B).all()
+    assert len(Bs) > 0
+
 
 def test_subquery(sync_client, client_session):
     addstuff(sync_client.Session)
@@ -190,6 +200,4 @@ def test_subquery(sync_client, client_session):
     ))
 
     print(f"As: {As.all()}")
-
-
     # sync_client.connect()

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 from dataclasses import dataclass
 from typing import Optional
@@ -7,15 +8,20 @@ import sqlalchemy
 
 from dbsync import server, core
 from dbsync.client import PushRejected, PullSuggested
-from dbsync.core import with_transaction
+from dbsync.core import with_transaction, with_transaction_async
 from dbsync.messages.push import PushMessage
+from dbsync.models import OperationError, Version, Operation, attr
+from dbsync.server import before_push, after_push
+from dbsync.server.conflicts import find_unique_conflicts
 from dbsync.socketserver import GenericWSServer, Connection
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
 
 from dbsync.createlogger import create_logger
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, make_transient
+
+from dbsync.utils import get_pk, properties_dict
 
 logger = create_logger("dbsync-server")
 
@@ -33,7 +39,7 @@ class SyncServer(GenericWSServer):
 
 
 @SyncServer.handler("/sync")
-@with_transaction()
+@with_transaction_async()
 async def sync(connection: Connection, session: sqlalchemy.orm.Session):
     # asyncio.ensure_future(keepalive(connection.socket))
 
@@ -60,6 +66,59 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
         if not pushmsg.islegit(session):
             raise PushRejected("message isn't properly signed")
 
+        for listener in before_push:
+            listener(session, pushmsg)
+
+        # I) detect unique constraint conflicts and resolve them if possible
+        unique_conflicts = find_unique_conflicts(pushmsg, session)
+        conflicting_objects = set()
+        for uc in unique_conflicts:
+            obj = uc['object']
+            conflicting_objects.add(obj)
+            for key, value in zip(uc['columns'], uc['new_values']):
+                setattr(obj, key, value)
+        for obj in conflicting_objects:
+            make_transient(obj) # remove from session
+        for model in set(type(obj) for obj in conflicting_objects):
+            pk_name = get_pk(model)
+            pks = [getattr(obj, pk_name)
+                   for obj in conflicting_objects
+                   if type(obj) is model]
+            session.query(model).filter(getattr(model, pk_name).in_(pks)).\
+                delete(synchronize_session=False) # remove from the database
+        session.add_all(conflicting_objects) # reinsert
+        session.flush()
+
+        # II) perform the operations
+        operations = [o for o in pushmsg.operations if o.tracked_model is not None]
+        try:
+            for op in operations:
+                op.perform(pushmsg, session, pushmsg.node_id)
+        except OperationError as e:
+            logger.exception("Couldn't perform operation in push from node %s.",
+                             pushmsg.node_id)
+            raise PushRejected("at least one operation couldn't be performed",
+                               *e.args)
+
+        # III) insert a new version
+        version = Version(created=datetime.datetime.now(), node_id=pushmsg.node_id)
+        session.add(version)
+
+    # IV) insert the operations, discarding the 'order' column
+    for op in sorted(operations, key=attr('order')):
+        new_op = Operation()
+        for k in [k for k in properties_dict(op) if k != 'order']:
+            setattr(new_op, k, getattr(op, k))
+        session.add(new_op)
+        new_op.version = version
+        session.flush()
+
+    for listener in after_push:
+        listener(session, pushmsg)
+
+    # session.commit()
+    # return the new version id back to the node
+    return {'new_version_id': version.version_id}
 
 @SyncServer.handler("/status")
 async def status(connection: Connection):

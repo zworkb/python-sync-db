@@ -413,6 +413,53 @@ def with_transaction(include_extensions=True):
         return wrapped
     return wrapper
 
+def with_transaction_async(include_extensions=True):
+    """
+    Decorator for a procedure that uses a session and acts as an
+    atomic transaction. It feeds a new session to the procedure, and
+    commits it, rolls it back, and / or closes it when it's
+    appropriate. If *include_extensions* is ``False``, the transaction
+    will ignore model extensions.
+    """
+    def wrapper(proc):
+        @wraps(proc)
+        async def wrapped(*args, **kwargs):
+            extensions = kwargs.pop('include_extensions', include_extensions)
+            session = Session()
+            previous_state = dialects.begin_transaction(session)
+            added = []
+            deleted = []
+            if extensions:
+                session.add = _track_deleted(
+                    _track_added(session.add, added),
+                    deleted,
+                    session)
+                session.merge = _track_deleted(
+                    _track_added(session.merge, added),
+                    deleted,
+                    session)
+                session.delete = _track_deleted(
+                    session.delete,
+                    deleted,
+                    session,
+                    always=True)
+            result = None
+            try:
+                kwargs.update({'session': session})
+                result = await proc(*args, **kwargs)
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                raise
+            finally:
+                dialects.end_transaction(previous_state, session)
+                session.close()
+            for old_obj, new_obj in deleted: delete_extensions(old_obj, new_obj)
+            for obj in added: save_extensions(obj)
+            return result
+        return wrapped
+    return wrapper
+
 
 def make_content_type_id(model):
     "Returns a content type id for the given model."
