@@ -7,6 +7,7 @@ import uuid
 
 import pytest
 from dbsync.client.wsclient import SyncClient
+from dbsync.core import extend
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker
@@ -86,12 +87,21 @@ def teardown(Session: sessionmaker):
     session.commit()
 
 
-# Base.metadata.create_all(engine)
-# dbsync.set_engine(engine)
-# dbsync.create_all()
-# dbsync.generate_content_types()
-# _session = Session()
-# _session.add(
-#     models.Node(registered=datetime.datetime.now(), secret=generate_secret(128)))
-# _session.commit()
-# _session.close()
+# demoes the the extension, the two handler functions do nothing
+
+def load_data(o: B) -> str:
+    print(f"LOAD: {o}")
+    return "loaded"
+
+
+def save_data(o:B, val: str) -> None:
+    print(f"SAVE:{o} ({val})")
+
+
+extend(
+    B,
+    "data",
+    String,
+    load_data,
+    save_data
+)

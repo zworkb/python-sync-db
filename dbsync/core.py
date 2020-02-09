@@ -210,7 +210,7 @@ Extension = Dict[
         TypeEngine,
         Callable[[SQLClass], Any],
         Callable[[SQLClass, Any], None],
-        Optional[Callable[[SQLClass, SQLClass], None]]
+        Optional[Callable[[SQLClass, SQLClass], None]],
     ]]
 
 Extensions = Dict[

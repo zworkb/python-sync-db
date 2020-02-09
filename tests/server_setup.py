@@ -57,6 +57,7 @@ def sync_server():
     print("tear down")
     return res.get()
 
+
 @pytest.fixture(scope="function")
 def server_session() -> sqlalchemy.orm.session.Session:
     """
