@@ -96,9 +96,9 @@ class SyncClient(GenericWSClient):
         # message_encoded = encode_dict(PushMessage)(message_json)
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
         await self.websocket.send(message_encoded)
-        res = await self.websocket.recv()
-        print("RES:", res)
 
+        async for msg in self.websocket:
+            logger.warn(f"response from server:{msg}")
 
         if not message.operations:
             return {}

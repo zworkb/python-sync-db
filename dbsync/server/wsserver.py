@@ -41,7 +41,6 @@ class SyncServer(GenericWSServer):
 @SyncServer.handler("/sync")
 @with_transaction_async()
 async def sync(connection: Connection, session: sqlalchemy.orm.Session):
-    # asyncio.ensure_future(keepalive(connection.socket))
 
     async for msg in connection.socket:
         msg_json = json.loads(msg)
@@ -94,6 +93,17 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
         try:
             for op in operations:
                 op.perform(pushmsg, session, pushmsg.node_id)
+                resp = dict(
+                    type="info",
+                    op=dict(
+                        row_id=op.row_id,
+                        version=op.version,
+                        command=op.command,
+                        content_type_id=op.content_type_id,
+                    )
+                )
+                await connection.socket.send(json.dumps(resp))
+
         except OperationError as e:
             logger.exception("Couldn't perform operation in push from node %s.",
                              pushmsg.node_id)
@@ -117,7 +127,7 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
             listener(session, pushmsg)
 
         # return the new version id back to the node
-        await connection.socket.send(str(version.version_id))
+        await connection.socket.send(json.dumps({'new_version_id': version.version_id}))
         return {'new_version_id': version.version_id}
 
 @SyncServer.handler("/status")
