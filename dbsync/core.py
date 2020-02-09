@@ -119,15 +119,16 @@ def set_engine(engine):
     _engine = engine
 
 
-def get_engine() -> Engine:
-    global _engine
-    return _engine
+# def get_engine() -> Engine:
+#     global _engine
+#     return _engine
 
 
 class ConfigurationError(Exception): pass
 
-def get_engine():
+def get_engine() -> Engine:
     "Returns a defined (not None) engine."
+    global _engine
     if _engine is None:
         raise ConfigurationError("database engine hasn't been set yet")
     return _engine
@@ -204,14 +205,22 @@ pulled_models: Set[SQLClass] = set()
 #: Set of classes in *synched_models* that are subject to push handling.
 pushed_models: Set[SQLClass] = set()
 
+@dataclass
+class ExtensionField:
+    klass: TypeEngine
+    loadfn: Optional[Callable[[SQLClass], Any]] = None
+    savefn: Optional[Callable[[SQLClass, Any], None]] = None
+    deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None
+
 Extension = Dict[
     str,
-    Tuple[
-        TypeEngine,
-        Callable[[SQLClass], Any],
-        Callable[[SQLClass, Any], None],
-        Optional[Callable[[SQLClass, SQLClass], None]],
-    ]]
+    ExtensionField
+    # Tuple[
+    #     TypeEngine,
+    #     Callable[[SQLClass], Any],
+    #     Callable[[SQLClass, Any], None],
+    #     Optional[Callable[[SQLClass, SQLClass], None]],]
+    ]
 
 Extensions = Dict[
     str,
@@ -265,7 +274,7 @@ def extend(
         "delete function must be a callable"
     extension: Extension = model_extensions.get(model.__name__, {})
     type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
-    extension[fieldname] = (type_, loadfn, savefn, deletefn)
+    extension[fieldname] = ExtensionField(type_, loadfn, savefn, deletefn)
     model_extensions[model.__name__] = extension
 
 
@@ -273,9 +282,10 @@ def _has_extensions(obj):
     return bool(model_extensions.get(type(obj).__name__, {}))
 
 def _has_delete_functions(obj):
+    ext: ExtensionField
     return any(
-        delfn is not None
-        for t, loadfn, savefn, delfn in list(model_extensions.get(
+        ext.deletefn is not None
+        for ext in list(model_extensions.get(
             type(obj).__name__, {}).values()))
 
 
@@ -284,9 +294,10 @@ def save_extensions(obj):
     Executes the save procedures for the extensions of the given
     object.
     """
+    ext: ExtensionField
     extensions = model_extensions.get(type(obj).__name__, {})
     for field, ext in list(extensions.items()):
-        _, _, savefn, _ = ext
+        savefn = ext.savefn
         try: savefn(obj, getattr(obj, field, None))
         except:
             logger.exception(

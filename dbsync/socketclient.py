@@ -32,7 +32,7 @@ class GenericWSClient:
     connection_event: Event = field(default_factory=Event)
     """event is fired by connect_async in case of success and connection closing"""
     task: Optional[asyncio.Task] = None
-    websocket: Optional[websockets.client.WebSocketClientProtocol] = None
+    websocket: websockets.client.WebSocketClientProtocol = None
     loop: asyncio.AbstractEventLoop = field(default=asyncio.get_event_loop())
 
 

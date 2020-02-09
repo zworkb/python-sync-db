@@ -7,7 +7,7 @@ from typing import Dict, Any, Union
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, properties_dict, construct_bare
-from dbsync.core import null_model, synched_models, model_extensions, SQLClass
+from dbsync.core import null_model, synched_models, model_extensions, SQLClass, ExtensionField
 from dbsync import models
 from dbsync.messages.codecs import decode_dict, encode_dict
 
@@ -160,8 +160,9 @@ class BaseMessage(object):
             return self
         properties = properties_dict(obj)
         if include_extensions:
+            ext: ExtensionField
             for field, ext in list(model_extensions.get(classname, {}).items()):
-                _, loadfn, _, _ = ext
+                loadfn = ext.loadfn
                 properties[field] = loadfn(obj)
         obj_set.add(ObjectType(
             classname, getattr(obj, get_pk(class_)), **properties))
