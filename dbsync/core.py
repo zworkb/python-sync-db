@@ -27,7 +27,8 @@ from sqlalchemy.engine import Engine
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, query_model, copy, class_mapper
-from dbsync.models import ContentType, Operation, Version, SQLClass
+from dbsync.models import ContentType, Operation, Version, SQLClass, _has_delete_functions, _has_extensions, \
+    delete_extensions, save_extensions
 from dbsync import dialects
 from dbsync.logs import get_logger
 
@@ -196,138 +197,6 @@ pulled_models: Set[SQLClass] = set()
 
 #: Set of classes in *synched_models* that are subject to push handling.
 pushed_models: Set[SQLClass] = set()
-
-@dataclass
-class ExtensionField:
-    klass: TypeEngine
-    loadfn: Optional[Callable[[SQLClass], Any]] = None
-    savefn: Optional[Callable[[SQLClass, Any], None]] = None
-    deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None
-
-    request_payload_fn: Optional[Callable[[SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None
-    """is called on server side to request payload from the client side"""
-    send_payload_fn: Optional[Callable[[SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
-    """is called on client side as to accept the request from server side and send over the payload"""
-
-
-Extension = Dict[
-    str,
-    ExtensionField
-]
-
-Extensions = Dict[
-    str,
-    Extension
-]
-
-#: Extensions to tracked models.
-model_extensions: Extensions = {}
-
-
-def extend(
-        model: SQLClass,
-        fieldname: str,
-        fieldtype: Union[Type[TypeEngine], TypeEngine],
-        loadfn: Callable[[SQLClass], Any],
-        savefn: Callable[[SQLClass, Any], None],
-        deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None,
-        request_payload_fn: Optional[Callable[[SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None,
-        send_payload_fn: Optional[Callable[[SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
-):
-    """
-    Extends *model* with a field of name *fieldname* and type
-    *fieldtype*.
-
-    *fieldtype* should be an instance of a SQLAlchemy type class, or
-    the class itself.
-
-    *loadfn* is a function called to populate the extension. It should
-    accept an instance of the model and should return the value of the
-    field.
-
-    *savefn* is a function called to persist the field. It should
-    accept the instance of the model and the field's value. It's
-    return value is ignored.
-
-    *deletefn* is a function called to revert the side effects of
-    *savefn* for old values. It gets called after an update on the
-    object with the old object's values, or after a delete. *deletefn*
-    is optional, and if given it should be a function of two
-    arguments: the first is the object in the previous state, the
-    second is the object in the current state.
-
-    Original proposal: https://gist.github.com/kklingenberg/7336576
-    """
-    assert inspect.isclass(model), "model must be a mapped class"
-    assert isinstance(fieldname, str) and bool(fieldname),\
-        "field name must be a non-empty string"
-    assert not hasattr(model, fieldname),\
-        "the model {0} already has the attribute {1}".\
-        format(model.__name__, fieldname)
-    assert inspect.isroutine(loadfn), "load function must be a callable"
-    assert inspect.isroutine(savefn), "save function must be a callable"
-    assert deletefn is None or inspect.isroutine(deletefn),\
-        "delete function must be a callable"
-    extension: Extension = model_extensions.get(model.__name__, {})
-    type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
-    extension[fieldname] = ExtensionField(type_, loadfn, savefn, deletefn, request_payload_fn, send_payload_fn)
-    model_extensions[model.__name__] = extension
-
-
-def _has_extensions(obj):
-    return bool(model_extensions.get(type(obj).__name__, {}))
-
-def _has_delete_functions(obj):
-    ext: ExtensionField
-    return any(
-        ext.deletefn is not None
-        for ext in list(model_extensions.get(
-            type(obj).__name__, {}).values()))
-
-
-def save_extensions(obj):
-    """
-    Executes the save procedures for the extensions of the given
-    object.
-    """
-    ext: ExtensionField
-    extensions = model_extensions.get(type(obj).__name__, {})
-    for field, ext in list(extensions.items()):
-        savefn = ext.savefn
-        try: savefn(obj, getattr(obj, field, None))
-        except:
-            logger.exception(
-                "Couldn't save extension %s for object %s", field, obj)
-
-
-async def request_payloads_for_extensions(obj: SQLClass, websocket: WebSocketCommonProtocol):
-    ext: ExtensionField
-    extensions = model_extensions.get(type(obj).__name__, {})
-
-    for field, ext in list(extensions.items()):
-        reqfn = ext.request_payload_fn
-        try: await reqfn(obj, getattr(obj, field, None))
-        except:
-            logger.exception(
-                "Couldn't save extension %s for object %s", field, obj)
-
-
-def delete_extensions(old_obj: SQLClass, new_obj: SQLClass):
-    """
-    Executes the delete procedures for the extensions of the given
-    object. *old_obj* is the object in the previous state, and
-    *new_obj* is the object in the current state (or ``None`` if the
-    object was deleted).
-    """
-    ext: ExtensionField
-    extensions = model_extensions.get(type(old_obj).__name__, {})
-    for field, ext in list(extensions.items()):
-        deletefn = ext.deletefn
-        if deletefn is not None:
-            try: deletefn(old_obj, new_obj)
-            except:
-                logger.exception(
-                    "Couldn't delete extension %s for object %s", field, new_obj)
 
 
 

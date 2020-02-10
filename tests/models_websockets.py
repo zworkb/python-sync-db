@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 from dbsync.client.wsclient import SyncClient
-from dbsync.core import extend
+from dbsync.models import extend
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker

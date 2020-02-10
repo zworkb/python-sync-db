@@ -12,7 +12,7 @@ import uuid
 import rfc3339
 from sqlalchemy import types
 from dbsync import core
-from dbsync.core import ExtensionField
+from dbsync.models import ExtensionField, model_extensions
 from dbsync.lang import *
 from dbsync.utils import types_dict as bare_types_dict
 
@@ -35,7 +35,7 @@ class SyncdbJSONEncoder(json.JSONEncoder):
 def types_dict(class_):
     "Augments standard types_dict with model extensions."
     dict_ = bare_types_dict(class_)
-    extensions = core.model_extensions.get(class_.__name__, {})
+    extensions = model_extensions.get(class_.__name__, {})
     ext: ExtensionField
     for field, ext in list(extensions.items()):
         type_= ext.klass

@@ -7,9 +7,9 @@ from dbsync.core import (
     is_synched,
     generate_content_types,
     set_engine,
-    get_engine,
-    save_extensions)
-from dbsync.models import Base
+    get_engine)
+
+from dbsync.models import Base, save_extensions
 from dbsync.logs import set_log_target
 
 

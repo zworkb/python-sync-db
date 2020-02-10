@@ -7,7 +7,9 @@ from typing import Dict, Any, Union, Set
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, properties_dict, construct_bare
-from dbsync.core import null_model, synched_models, model_extensions, SQLClass, ExtensionField
+from dbsync.models import model_extensions, SQLClass, ExtensionField
+from dbsync.core import null_model, synched_models
+
 from dbsync import models
 from dbsync.messages.codecs import decode_dict, encode_dict
 
