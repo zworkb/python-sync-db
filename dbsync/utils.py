@@ -147,3 +147,4 @@ class EventRegister(object):
         if listener not in self._listeners:
             self._listeners.append(listener)
         return listener
+

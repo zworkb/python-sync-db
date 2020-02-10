@@ -3,7 +3,7 @@ Base functionality for synchronization messages.
 """
 
 import inspect
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Set
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, properties_dict, construct_bare
@@ -118,7 +118,7 @@ class BaseMessage(object):
     "The base type for messages with a payload."
 
     #: dictionary of (model name, set of wrapped objects)
-    payload: Dict[str, Any]
+    payload: Dict[str, Set]
 
     def __init__(self, raw_data: Dict[str, Any] = None):
         self.payload = {}

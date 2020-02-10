@@ -1,11 +1,21 @@
 """
 Internal model used to keep track of versions and operations.
 """
+from typing import Union, Optional, Tuple
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger
-from sqlalchemy.orm import relationship, backref, validates
+from sqlalchemy.sql import Join
+
+try:
+    from typing import Protocol
+except ImportError:
+    from typing import _Protocol as Protocol
+
+
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table
+from sqlalchemy.orm import relationship, backref, validates, Session, Mapper
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.declarative.api import DeclarativeMeta
+from websockets import WebSocketServerProtocol, WebSocketCommonProtocol
 
 from dbsync.dialects import GUID
 from dbsync.lang import *
@@ -14,6 +24,18 @@ from dbsync.logs import get_logger
 
 
 logger = get_logger(__name__)
+
+
+class SQLClass(Protocol):
+
+    """duck typing for sqlalchemy content class"""
+    __table__: Table
+    __tablename__: str
+    __name__: str
+    __mapper__: Mapper
+
+    mapped_table: Union[Table, Join]
+    primary_key: Tuple[Column, ...]
 
 
 #: Database tables prefix.
@@ -220,3 +242,108 @@ class Operation(Base):
             raise OperationError(
                 "the operation doesn't specify a valid command ('i', 'u', 'd')",
                 operation)
+
+    async def request_payloads_for_extensions(obj: SQLClass, websocket: WebSocketCommonProtocol):
+        ext: ExtensionField
+        extensions = model_extensions.get(type(obj).__name__, {})
+
+        for field, ext in list(extensions.items()):
+            reqfn = ext.request_payload_fn
+            try:
+                await reqfn(obj, getattr(obj, field, None))
+            except:
+                logger.exception(
+                    "Couldn't save extension %s for object %s", field, obj)
+
+    async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
+                      websocket: Optional[WebSocketCommonProtocol] = None
+                      ):
+        """
+        Performs *operation*, looking for required data in
+        *container*, and using *session* to perform it.
+
+        *container* is an instance of
+        dbsync.messages.base.BaseMessage.
+
+        *node_id* is the node responsible for the operation, if known
+        (else ``None``).
+
+        If at any moment this operation fails for predictable causes,
+        it will raise an *OperationError*.
+        """
+        model = operation.tracked_model
+        if model is None:
+            raise OperationError("no content type for this operation", operation)
+
+        if operation.command == 'i':
+            # check if the given object is already in the database
+            obj = query_model(session, model).\
+                filter(getattr(model, get_pk(model)) == operation.row_id).first()
+
+            # retrieve the object from the PullMessage
+            pull_obj = container.query(model).\
+                filter(attr('__pk__') == operation.row_id).first()
+            if pull_obj is None:
+                raise OperationError(
+                    "no object backing the operation in container", operation)
+            if obj is None:
+                # await request_payloads_for_extensions(pull_obj, websocket)
+                session.add(pull_obj)
+            else:
+                # Don't raise an exception if the incoming object is
+                # exactly the same as the local one.
+                if properties_dict(obj) == properties_dict(pull_obj):
+                    logger.warning("insert attempted when an identical object "
+                                   "already existed in local database: "
+                                   "model {0} pk {1}".format(model.__name__,
+                                                              operation.row_id))
+                else:
+                    raise OperationError(
+                        "insert attempted when the object already existed: "
+                        "model {0} pk {1}".format(model.__name__,
+                                                   operation.row_id))
+
+        elif operation.command == 'u':
+            obj = query_model(session, model).\
+                filter(getattr(model, get_pk(model)) == operation.row_id).first()
+            if obj is None:
+                # For now, the record will be created again, but is an
+                # error because nothing should be deleted without
+                # using dbsync
+                # raise OperationError(
+                #     "the referenced object doesn't exist in database", operation)
+                logger.warning(
+                    "The referenced object doesn't exist in database. "
+                    "Node %s. Operation %s",
+                    node_id,
+                    operation)
+
+            # get new object from the PushMessage
+            pull_obj = container.query(model).\
+                filter(attr('__pk__') == operation.row_id).first()
+            if pull_obj is None:
+                raise OperationError(
+                    "no object backing the operation in container", operation)
+            session.merge(pull_obj)
+
+        elif operation.command == 'd':
+            obj = query_model(session, model, only_pk=True).\
+                filter(getattr(model, get_pk(model)) == operation.row_id).first()
+            if obj is None:
+                # The object is already deleted in the server
+                # The final state in node and server are the same. But
+                # it's an error because nothing should be deleted
+                # without using dbsync
+                logger.warning(
+                    "The referenced object doesn't exist in database. "
+                    "Node %s. Operation %s",
+                    node_id,
+                    operation)
+            else:
+                session.delete(obj)
+
+        else:
+            raise OperationError(
+                "the operation doesn't specify a valid command ('i', 'u', 'd')",
+                operation)
+

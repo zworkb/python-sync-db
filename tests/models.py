@@ -1,4 +1,5 @@
 import datetime
+import os
 import uuid
 
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
@@ -10,8 +11,8 @@ from dbsync.utils import generate_secret
 import dbsync
 from dbsync import client, models
 
-
-engine = create_engine("sqlite:///./test.db")
+db_file = "./test000.db"
+engine = create_engine(f"sqlite:///{db_file}")
 # engine = create_engine("sqlite://")
 Session = sessionmaker(bind=engine)
 
@@ -44,7 +45,8 @@ class B(Base):
         return u"<B id:{0} name:{1} a_id:{2}>".format(
             self.id, self.name, self.a_id)
 
-
+if os.path.exists(db_file):
+    os.remove(db_file)
 Base.metadata.create_all(engine)
 dbsync.set_engine(engine)
 dbsync.create_all()

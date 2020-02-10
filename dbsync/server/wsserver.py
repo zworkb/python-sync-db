@@ -92,7 +92,7 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
         operations = [o for o in pushmsg.operations if o.tracked_model is not None]
         try:
             for op in operations:
-                op.perform(pushmsg, session, pushmsg.node_id)
+                await op.perform_async(pushmsg, session, pushmsg.node_id)
                 resp = dict(
                     type="info",
                     op=dict(
@@ -126,9 +126,10 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
         for listener in after_push:
             listener(session, pushmsg)
 
-        # return the new version id back to the node
+        # return the new version id back to the client
         await connection.socket.send(json.dumps({'new_version_id': version.version_id}))
         return {'new_version_id': version.version_id}
+
 
 @SyncServer.handler("/status")
 async def status(connection: Connection):
