@@ -6,6 +6,8 @@ import time
 import uuid
 
 import pytest
+from websockets import WebSocketCommonProtocol
+
 from dbsync.client.wsclient import SyncClient
 from dbsync.models import extend
 from dbsync.server.wsserver import SyncServer
@@ -23,7 +25,7 @@ client_db = "./test_client.db"
 
 
 PORT = 7081
-SERVER_URL=f"ws://localhost:{PORT}/"
+SERVER_URL = f"ws://localhost:{PORT}/"
 
 Base = declarative_base()
 
@@ -65,6 +67,7 @@ def addstuff(Session: sessionmaker):
     session.add_all([a1, a2, a3,  b1, b2, b3])
     session.commit()
 
+
 def changestuff(Session: sessionmaker):
     session = Session()
     a1, a2, a3 = session.query(A).all()
@@ -87,7 +90,7 @@ def teardown(Session: sessionmaker):
     session.commit()
 
 
-# demoes the the extension, the two handler functions do nothing
+# demos the the extension, the two handler functions do nothing
 
 def load_data(o: B) -> str:
     print(f"LOAD: {o}")
@@ -98,10 +101,16 @@ def save_data(o:B, val: str) -> None:
     print(f"SAVE:{o} ({val})")
 
 
+def request_fetch(o: B, websocket: WebSocketCommonProtocol):
+    print(f"REQUEST FETCH{o}")
+
+
 extend(
     B,
     "data",
     String,
     load_data,
-    save_data
+    save_data,
+    request_payload_fn=request_fetch,
+
 )

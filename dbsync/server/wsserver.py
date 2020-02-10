@@ -92,7 +92,7 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
         operations = [o for o in pushmsg.operations if o.tracked_model is not None]
         try:
             for op in operations:
-                await op.perform_async(pushmsg, session, pushmsg.node_id)
+                await op.perform_async(pushmsg, session, pushmsg.node_id, connection.socket)
                 resp = dict(
                     type="info",
                     op=dict(

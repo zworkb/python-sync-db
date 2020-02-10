@@ -152,7 +152,7 @@ async def request_payloads_for_extensions(obj: SQLClass, websocket: WebSocketCom
 
     for field, ext in list(extensions.items()):
         reqfn = ext.request_payload_fn
-        try: await reqfn(obj, getattr(obj, field, None))
+        try: await reqfn(obj, websocket)
         except:
             logger.exception(
                 "Couldn't save extension %s for object %s", field, obj)
@@ -382,17 +382,6 @@ class Operation(Base):
                 "the operation doesn't specify a valid command ('i', 'u', 'd')",
                 operation)
 
-    async def request_payloads_for_extensions(obj: SQLClass, websocket: WebSocketCommonProtocol):
-        ext: ExtensionField
-        extensions = model_extensions.get(type(obj).__name__, {})
-
-        for field, ext in list(extensions.items()):
-            reqfn = ext.request_payload_fn
-            try:
-                await reqfn(obj, getattr(obj, field, None))
-            except:
-                logger.exception(
-                    "Couldn't save extension %s for object %s", field, obj)
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
                       websocket: Optional[WebSocketCommonProtocol] = None
@@ -426,7 +415,7 @@ class Operation(Base):
                 raise OperationError(
                     "no object backing the operation in container", operation)
             if obj is None:
-                # await request_payloads_for_extensions(pull_obj, websocket)
+                await request_payloads_for_extensions(pull_obj, websocket)
                 session.add(pull_obj)
             else:
                 # Don't raise an exception if the incoming object is
