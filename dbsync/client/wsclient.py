@@ -15,7 +15,7 @@ from dbsync.createlogger import create_logger
 from dbsync.messages.codecs import encode_dict, SyncdbJSONEncoder
 from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
-from dbsync.models import Node
+from dbsync.models import Node, model_extensions, get_model_extension_for_obj
 from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -91,9 +91,16 @@ class SyncClient(GenericWSClient):
         module = importlib.import_module(msg['package_name'])
         klass = getattr(module, msg['class_name'])
         pkname = msg['id_field']
-        session.query(klass).filter(getattr(klass, pkname) == msg[pkname]).one()
+        obj = session.query(klass).filter(getattr(klass, pkname) == msg[pkname]).one()
 
-        obj = session.query(klass)
+        extension = get_model_extension_for_obj(obj)
+
+        print("EXT:", extension)
+        fieldname = msg['field_name']
+        extension_field = extension[fieldname]
+        await extension_field.send_payload_fn(obj, fieldname, self.websocket)
+
+
 
     async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
         message = self.create_push_message()

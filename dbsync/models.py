@@ -51,9 +51,9 @@ class ExtensionField:
     savefn: Optional[Callable[[SQLClass, Any], None]] = None
     deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None
 
-    request_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None
+    request_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None
     """is called on server side to request payload from the client side"""
-    send_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
+    send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
     """is called on client side as to accept the request from server side and send over the payload"""
 
 
@@ -75,11 +75,11 @@ def extend(
         model: SQLClass,
         fieldname: str,
         fieldtype: Union[Type[TypeEngine], TypeEngine],
-        loadfn: Callable[[SQLClass], Any],
-        savefn: Callable[[SQLClass, Any], None],
+        loadfn: Callable[[SQLClass], Any] = None,
+        savefn: Callable[[SQLClass, Any], None] = None,
         deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None,
-        request_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None,
-        send_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
+        request_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None,
+        send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
 ):
     """
     Extends *model* with a field of name *fieldname* and type
@@ -111,14 +111,20 @@ def extend(
     assert not hasattr(model, fieldname),\
         "the model {0} already has the attribute {1}".\
         format(model.__name__, fieldname)
-    assert inspect.isroutine(loadfn), "load function must be a callable"
-    assert inspect.isroutine(savefn), "save function must be a callable"
+    assert loadfn is None or inspect.isroutine(loadfn), "load function must be a callable"
+    assert loadfn is None or inspect.isroutine(savefn), "save function must be a callable"
     assert deletefn is None or inspect.isroutine(deletefn),\
         "delete function must be a callable"
     extension: Extension = model_extensions.get(model.__name__, {})
     type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
     extension[fieldname] = ExtensionField(type_, loadfn, savefn, deletefn, request_payload_fn, send_payload_fn)
     model_extensions[model.__name__] = extension
+
+
+def get_model_extension_for_obj(obj: SQLClass) -> Extension:
+    ext = model_extensions.get(type(obj).__name__, {})
+
+    return ext
 
 
 def _has_extensions(obj):
@@ -178,7 +184,7 @@ async def request_payloads_for_extensions(operation: "Operation", obj: SQLClass,
             try:
                 await websocket.send(create_field_request_message(obj, field))
                 print(f"REQFN:{reqfn}")
-                await reqfn(operation, obj, websocket)
+                await reqfn(operation, obj, field, websocket)
             except Exception as e:
                 logger.exception(
                     f"Couldn't request extension {field} for object {obj}")

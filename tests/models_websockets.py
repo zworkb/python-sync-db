@@ -9,7 +9,7 @@ import pytest
 from websockets import WebSocketCommonProtocol
 
 from dbsync.client.wsclient import SyncClient
-from dbsync.models import extend, Operation
+from dbsync.models import extend, Operation, SQLClass
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker
@@ -97,20 +97,29 @@ def load_data(o: B) -> str:
     return "loaded"
 
 
-def save_data(o:B, val: str) -> None:
+def save_data(o: B, val: str) -> None:
     print(f"SAVE:{o} ({val})")
 
 
-async def request_fetch(op: Operation, o: B, websocket: WebSocketCommonProtocol):
-    print(f"REQUEST FETCH: op:{op}, obj:{o}")
+async def request_fetch(op: Operation, o: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
+    res = await websocket.recv()
+    print(f"!!REQUEST FETCH: field:{fieldname}, res: {res}, obj:{o}, op:{op}")
+
+
+
+
+async def send_payload_data(obj: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
+    print(f"SEND PAYLOAD DATA: obj{obj}")
+    await websocket.send(f"big data for field {fieldname}")
 
 
 extend(
     B,
     "data",
     String,
-    load_data,
-    save_data,
+    # load_data,
+    # save_data,
     request_payload_fn=request_fetch,
+    send_payload_fn=send_payload_data
 
 )

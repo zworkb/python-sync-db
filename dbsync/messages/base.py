@@ -165,7 +165,8 @@ class BaseMessage(object):
             ext: ExtensionField
             for field, ext in list(model_extensions.get(classname, {}).items()):
                 loadfn = ext.loadfn
-                properties[field] = loadfn(obj)
+                if loadfn:
+                    properties[field] = loadfn(obj)
         obj_set.add(ObjectType(
             classname, getattr(obj, get_pk(class_)), **properties))
         self.payload[classname] = obj_set
