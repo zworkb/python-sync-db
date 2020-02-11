@@ -1,7 +1,8 @@
 import asyncio
+import importlib
 import json
 from dataclasses import dataclass
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 import sqlalchemy
 import websockets
@@ -83,6 +84,17 @@ class SyncClient(GenericWSClient):
 
         return message
 
+    async def send_field_payload(self, session: sqlalchemy.orm.Session, msg: Dict[str, Any]):
+        ...
+        print(f"!!send_field_payload:{msg}")
+        # breakpoint()
+        module = importlib.import_module(msg['package_name'])
+        klass = getattr(module, msg['class_name'])
+        pkname = msg['id_field']
+        session.query(klass).filter(getattr(klass, pkname) == msg[pkname]).one()
+
+        obj = session.query(klass)
+
     async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
         message = self.create_push_message()
         if not session:
@@ -97,8 +109,14 @@ class SyncClient(GenericWSClient):
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
         await self.websocket.send(message_encoded)
 
-        async for msg in self.websocket:
-            logger.warn(f"response from server:{msg}")
+        async for msg_ in self.websocket:
+            msg = json.loads(msg_)
+            print("MSG:", msg)
+            if msg['type'] == "request_field_payload":
+                logger.warn(f"obj from server:{msg}")
+                await self.send_field_payload(session, msg)
+            else:
+                logger.info(f"response from server:{msg}")
 
         if not message.operations:
             return {}

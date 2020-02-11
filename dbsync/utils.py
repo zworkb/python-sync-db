@@ -77,7 +77,7 @@ def copy(obj):
     return object_from_dict(type(obj), properties_dict(obj))
 
 
-def get_pk(sa_variant):
+def get_pk(sa_variant) -> str:
     "Returns the primary key name for the given mapped class or object."
     mapper = class_mapper(sa_variant) if inspect.isclass(sa_variant) \
         else object_mapper(sa_variant)

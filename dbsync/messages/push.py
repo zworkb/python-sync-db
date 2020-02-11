@@ -23,7 +23,7 @@ from dbsync.core import (
     session_closing,
     synched_models,
     pushed_models)
-from dbsync.models import Node, Operation
+from dbsync.models import Node, Operation, SQLClass
 from dbsync.messages.base import MessageQuery, BaseMessage
 from dbsync.messages.codecs import encode, encode_dict, decode, decode_dict
 
@@ -95,7 +95,7 @@ class PushMessage(BaseMessage):
         self.operations = list(map(partial(object_from_dict, Operation),
                                    list(map(decode_dict(Operation), data.get('operations', [])))))
 
-    def query(self, model):
+    def query(self, model: SQLClass):
         """Returns a query object for this message."""
         return MessageQuery(
             model,

@@ -2,6 +2,7 @@
 Internal model used to keep track of versions and operations.
 """
 import inspect
+import json
 from dataclasses import dataclass
 from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type
 
@@ -50,9 +51,9 @@ class ExtensionField:
     savefn: Optional[Callable[[SQLClass, Any], None]] = None
     deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None
 
-    request_payload_fn: Optional[Callable[[SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None
+    request_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None
     """is called on server side to request payload from the client side"""
-    send_payload_fn: Optional[Callable[[SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
+    send_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
     """is called on client side as to accept the request from server side and send over the payload"""
 
 
@@ -77,8 +78,8 @@ def extend(
         loadfn: Callable[[SQLClass], Any],
         savefn: Callable[[SQLClass, Any], None],
         deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None,
-        request_payload_fn: Optional[Callable[[SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None,
-        send_payload_fn: Optional[Callable[[SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
+        request_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None,
+        send_payload_fn: Optional[Callable[["Operation", SQLClass, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
 ):
     """
     Extends *model* with a field of name *fieldname* and type
@@ -146,16 +147,42 @@ def save_extensions(obj):
                 "Couldn't save extension %s for object %s", field, obj)
 
 
-async def request_payloads_for_extensions(obj: SQLClass, websocket: WebSocketCommonProtocol):
+
+
+def create_field_request_message(obj: SQLClass, field: str):
+    id_field = get_pk(obj)
+    res = dict(
+        type="request_field_payload",
+        field_name=field,
+        table=obj.__tablename__,
+        id_field=id_field,
+        id=getattr(obj, id_field),
+        class_name=obj.__class__.__name__,
+        package_name=obj.__class__.__module__
+    )
+
+    from dbsync.messages.codecs import SyncdbJSONEncoder
+    return json.dumps(res, cls=SyncdbJSONEncoder)
+
+
+async def request_payloads_for_extensions(operation: "Operation", obj: SQLClass, websocket: WebSocketCommonProtocol):
+    """
+    requests payload data for a given object via a given websocket
+    """
     ext: ExtensionField
     extensions = model_extensions.get(type(obj).__name__, {})
 
     for field, ext in list(extensions.items()):
         reqfn = ext.request_payload_fn
-        try: await reqfn(obj, websocket)
-        except:
-            logger.exception(
-                "Couldn't save extension %s for object %s", field, obj)
+        if reqfn:
+            try:
+                await websocket.send(create_field_request_message(obj, field))
+                print(f"REQFN:{reqfn}")
+                await reqfn(operation, obj, websocket)
+            except Exception as e:
+                logger.exception(
+                    f"Couldn't request extension {field} for object {obj}")
+                raise
 
 
 def delete_extensions(old_obj: SQLClass, new_obj: SQLClass):
@@ -170,10 +197,11 @@ def delete_extensions(old_obj: SQLClass, new_obj: SQLClass):
     for field, ext in list(extensions.items()):
         deletefn = ext.deletefn
         if deletefn is not None:
-            try: deletefn(old_obj, new_obj)
+            try:
+                deletefn(old_obj, new_obj)
             except:
                 logger.exception(
-                    "Couldn't delete extension %s for object %s", field, new_obj)
+                    f"Couldn't delete extension {field} for object {new_obj}")
 
 
 # Database model
@@ -415,7 +443,7 @@ class Operation(Base):
                 raise OperationError(
                     "no object backing the operation in container", operation)
             if obj is None:
-                await request_payloads_for_extensions(pull_obj, websocket)
+                await request_payloads_for_extensions(operation, pull_obj, websocket)
                 session.add(pull_obj)
             else:
                 # Don't raise an exception if the incoming object is

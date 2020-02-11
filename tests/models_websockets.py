@@ -9,7 +9,7 @@ import pytest
 from websockets import WebSocketCommonProtocol
 
 from dbsync.client.wsclient import SyncClient
-from dbsync.models import extend
+from dbsync.models import extend, Operation
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker
@@ -101,8 +101,8 @@ def save_data(o:B, val: str) -> None:
     print(f"SAVE:{o} ({val})")
 
 
-def request_fetch(o: B, websocket: WebSocketCommonProtocol):
-    print(f"REQUEST FETCH{o}")
+async def request_fetch(op: Operation, o: B, websocket: WebSocketCommonProtocol):
+    print(f"REQUEST FETCH: op:{op}, obj:{o}")
 
 
 extend(
