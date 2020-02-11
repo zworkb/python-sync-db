@@ -93,15 +93,14 @@ def teardown(Session: sessionmaker):
 # demos the the extension, the two handler functions do nothing
 
 async def receive_payload_data(op: Operation, o: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
+    assert core.mode == 'server'
     res = await websocket.recv()
     print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, res: {res}, obj:{o}, op:{op}")
-    from dbsync import core
-    assert core.mode == 'server'
 
 
 async def send_payload_data(obj: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
-    print(f"SEND PAYLOAD DATA: obj{obj}")
     assert core.mode == 'client'
+    print(f"SEND PAYLOAD DATA: obj{obj}")
     await websocket.send(f"big data for field {fieldname}")
 
 
