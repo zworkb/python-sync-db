@@ -92,22 +92,16 @@ def teardown(Session: sessionmaker):
 
 # demos the the extension, the two handler functions do nothing
 
-def load_data(o: B) -> str:
-    print(f"LOAD: {o}")
-    return "loaded"
-
-
-def save_data(o: B, val: str) -> None:
-    print(f"SAVE:{o} ({val})")
-
-
 async def receive_payload_data(op: Operation, o: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
     res = await websocket.recv()
     print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, res: {res}, obj:{o}, op:{op}")
+    from dbsync import core
+    assert core.mode == 'server'
 
 
 async def send_payload_data(obj: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
     print(f"SEND PAYLOAD DATA: obj{obj}")
+    assert core.mode == 'client'
     await websocket.send(f"big data for field {fieldname}")
 
 

@@ -130,6 +130,7 @@ def get_model_extension_for_obj(obj: SQLClass) -> Extension:
 def _has_extensions(obj):
     return bool(model_extensions.get(type(obj).__name__, {}))
 
+
 def _has_delete_functions(obj):
     ext: ExtensionField
     return any(

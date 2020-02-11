@@ -23,6 +23,8 @@ def register_server_tracking():
 
 
 def start_ws_server(**kw):
+    from dbsync import core
+    core.mode = "server"
     engine_server = create_engine(f"sqlite:///{server_db}")
     Base.metadata.create_all(engine_server)
     dbsync.set_engine(engine_server)

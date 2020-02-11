@@ -11,7 +11,6 @@ from sqlalchemy.orm import sessionmaker
 
 from .models_websockets import Base, PORT, SERVER_URL, server_db, client_db, A, B
 
-
 def register_client_tracking():
     client.track(A)
     client.track(B)
@@ -19,6 +18,8 @@ def register_client_tracking():
 
 @pytest.fixture(scope="function")
 def sync_client():
+    from dbsync import core
+    core.mode = "client"
     try:
         os.remove(client_db)
     except FileNotFoundError:
