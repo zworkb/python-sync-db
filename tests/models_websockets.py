@@ -101,11 +101,9 @@ def save_data(o: B, val: str) -> None:
     print(f"SAVE:{o} ({val})")
 
 
-async def request_fetch(op: Operation, o: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
+async def receive_payload_data(op: Operation, o: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
     res = await websocket.recv()
-    print(f"!!REQUEST FETCH: field:{fieldname}, res: {res}, obj:{o}, op:{op}")
-
-
+    print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, res: {res}, obj:{o}, op:{op}")
 
 
 async def send_payload_data(obj: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
@@ -119,7 +117,18 @@ extend(
     String,
     # load_data,
     # save_data,
-    request_payload_fn=request_fetch,
+    receive_payload_fn=receive_payload_data,
+    send_payload_fn=send_payload_data
+
+)
+
+extend(
+    B,
+    "otherdata",
+    String,
+    # load_data,
+    # save_data,
+    receive_payload_fn=receive_payload_data,
     send_payload_fn=send_payload_data
 
 )
