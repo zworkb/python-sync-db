@@ -75,10 +75,10 @@ def addstuff(Session: sessionmaker):
     b3 = B(name="third b", a=a2)
 
     with open(datapath(b1.data), "w") as fh:
-        fh.write("b1" * 1000)
+        fh.write("b1" * 10_000_000)
 
     with open(datapath(b2.data), "w") as fh:
-        fh.write("b2" * 1000)
+        fh.write("b2" * 10_000_000)
 
     session = Session()
     session.add_all([a1, a2, a3,  b1, b2, b3])
@@ -109,18 +109,14 @@ def teardown(Session: sessionmaker):
 
 # demos the the extension, the two handler functions do nothing
 
-async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol):
-    assert core.mode == 'server'
-    flag_ = await websocket.recv()
-    flag = json.loads(flag_)
-    print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, flag: {flag}, obj:{o}, op:{op}")
-    if flag:
-        payload = await websocket.recv()
-        with open(datapath(o.data), "w") as fh:
-            fh.write(payload)
 
 
 async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonProtocol):
+    """
+    This is an example function for sending payload data.
+    in this example we first send a flag that signifies wether we have a payload to send
+    and then send the payload
+    """
     assert core.mode == 'client'
     print(f"SEND PAYLOAD DATA: obj{obj}")
     if obj.data:
@@ -131,12 +127,24 @@ async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonPr
         await websocket.send(json.dumps(False))
 
 
+async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol):
+    """
+    this example function shows the receive end for the payload data
+    """
+    assert core.mode == 'server'
+    flag_ = await websocket.recv()
+    flag = json.loads(flag_)
+    print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, flag: {flag}, obj:{o}, op:{op}")
+    if flag:
+        payload = await websocket.recv()
+        with open(datapath(o.data), "w") as fh:
+            fh.write(payload)
+
+
 extend(
     B,
     "data",
     String,
-    # load_data,
-    # save_data,
     receive_payload_fn=receive_payload_data,
     send_payload_fn=send_payload_data
 

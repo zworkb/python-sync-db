@@ -184,7 +184,7 @@ class GenericWSServer(object):
         """use this one if you are already in async land"""
 
         try:
-            async with websockets.serve(self.service, self.host, self.port) as self.server:
+            async with websockets.serve(self.service, self.host, self.port, max_size=None) as self.server:
                 self._on_started()
                 await self.stopper
         except Exception as e:
