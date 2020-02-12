@@ -108,9 +108,11 @@ def extend(
     assert inspect.isclass(model), "model must be a mapped class"
     assert isinstance(fieldname, str) and bool(fieldname),\
         "field name must be a non-empty string"
-    assert not hasattr(model, fieldname),\
-        "the model {0} already has the attribute {1}".\
-        format(model.__name__, fieldname)
+
+    if loadfn or savefn:
+        assert not hasattr(model, fieldname),\
+            "the model {0} already has the attribute {1}".\
+            format(model.__name__, fieldname)
     assert loadfn is None or inspect.isroutine(loadfn), "load function must be a callable"
     assert loadfn is None or inspect.isroutine(savefn), "save function must be a callable"
     assert deletefn is None or inspect.isroutine(deletefn),\

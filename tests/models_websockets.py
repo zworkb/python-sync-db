@@ -30,6 +30,15 @@ SERVER_URL = f"ws://localhost:{PORT}/"
 Base = declarative_base()
 
 
+def datapath(fname=""):
+    path = f"./{core.mode}"
+    if not os.path.exists(path):
+        os.makedirs(path, 0o777, True)
+    res = os.path.join(path, fname)
+
+    return res
+
+
 @client.track
 class A(Base):
     __tablename__ = "test_a"
@@ -48,6 +57,7 @@ class B(Base):
     id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String)
     a_id = Column(GUID, ForeignKey("test_a.id"))
+    data = Column(String)
 
     a = relationship(A, backref="bs")
 

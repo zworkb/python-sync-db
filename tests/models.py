@@ -38,6 +38,7 @@ class B(Base):
     id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String)
     a_id = Column(GUID, ForeignKey("test_a.id"))
+    data = Column(String)
 
     a = relationship(A, backref="bs")
 
