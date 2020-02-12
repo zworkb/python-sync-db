@@ -1,4 +1,4 @@
-
+import json
 import multiprocessing as mp
 import datetime
 import os
@@ -31,7 +31,7 @@ Base = declarative_base()
 
 
 def datapath(fname=""):
-    path = f"./{core.mode}"
+    path = f"./testblobs/{core.mode}"
     if not os.path.exists(path):
         os.makedirs(path, 0o777, True)
     res = os.path.join(path, fname)
@@ -70,9 +70,16 @@ def addstuff(Session: sessionmaker):
     a1 = A(name="first a")
     a2 = A(name="second a")
     a3 = A(name="third a")
-    b1 = B(name="first b", a=a1)
-    b2 = B(name="second b", a=a1)
+    b1 = B(name="first b", a=a1, data="b1.txt")
+    b2 = B(name="second b", a=a1, data="b2.txt")
     b3 = B(name="third b", a=a2)
+
+    with open(datapath(b1.data), "w") as fh:
+        fh.write("b1" * 1000)
+
+    with open(datapath(b2.data), "w") as fh:
+        fh.write("b2" * 1000)
+
     session = Session()
     session.add_all([a1, a2, a3,  b1, b2, b3])
     session.commit()
@@ -102,16 +109,26 @@ def teardown(Session: sessionmaker):
 
 # demos the the extension, the two handler functions do nothing
 
-async def receive_payload_data(op: Operation, o: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
+async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol):
     assert core.mode == 'server'
-    res = await websocket.recv()
-    print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, res: {res}, obj:{o}, op:{op}")
+    flag_ = await websocket.recv()
+    flag = json.loads(flag_)
+    print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, flag: {flag}, obj:{o}, op:{op}")
+    if flag:
+        payload = await websocket.recv()
+        with open(datapath(o.data), "w") as fh:
+            fh.write(payload)
 
 
-async def send_payload_data(obj: SQLClass, fieldname: str, websocket: WebSocketCommonProtocol):
+async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonProtocol):
     assert core.mode == 'client'
     print(f"SEND PAYLOAD DATA: obj{obj}")
-    await websocket.send(f"big data for field {fieldname}")
+    if obj.data:
+        await websocket.send(json.dumps(True))
+        with open(datapath(obj.data), "r") as fh:
+            await websocket.send(fh.read())
+    else:
+        await websocket.send(json.dumps(False))
 
 
 extend(
@@ -125,13 +142,13 @@ extend(
 
 )
 
-extend(
-    B,
-    "otherdata",
-    String,
-    # load_data,
-    # save_data,
-    receive_payload_fn=receive_payload_data,
-    send_payload_fn=send_payload_data
-
-)
+# extend(
+#     B,
+#     "otherdata",
+#     String,
+#     # load_data,
+#     # save_data,
+#     receive_payload_fn=receive_payload_data,
+#     send_payload_fn=send_payload_data
+#
+# )
