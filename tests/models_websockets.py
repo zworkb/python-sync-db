@@ -12,7 +12,7 @@ from dbsync.client.wsclient import SyncClient
 from dbsync.models import extend, Operation, SQLClass
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship, sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
 
 from dbsync.dialects import GUID
@@ -111,7 +111,7 @@ def teardown(Session: sessionmaker):
 
 
 
-async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonProtocol):
+async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonProtocol, session: Session):
     """
     This is an example function for sending payload data.
     in this example we first send a flag that signifies wether we have a payload to send
@@ -127,7 +127,7 @@ async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonPr
         await websocket.send(json.dumps(False))
 
 
-async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol):
+async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol, session: Session):
     """
     this example function shows the receive end for the payload data
     """

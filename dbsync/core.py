@@ -324,6 +324,7 @@ def with_transaction_async(include_extensions=True):
         @wraps(proc)
         async def wrapped(*args, **kwargs):
             extensions = kwargs.pop('include_extensions', include_extensions)
+            # breakpoint()
             session = Session()
             previous_state = dialects.begin_transaction(session)
             added = []

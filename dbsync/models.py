@@ -51,9 +51,9 @@ class ExtensionField:
     savefn: Optional[Callable[[SQLClass, Any], None]] = None
     deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None
 
-    receive_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None
+    receive_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol, Session], Coroutine[Any, Any, None]]] = None
     """is called on server side to request payload from the client side"""
-    send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
+    send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
     """is called on client side as to accept the request from server side and send over the payload"""
 
 
@@ -173,7 +173,8 @@ def create_field_request_message(obj: SQLClass, field: str):
     return json.dumps(res, cls=SyncdbJSONEncoder)
 
 
-async def request_payloads_for_extension(operation: "Operation", obj: SQLClass, websocket: WebSocketCommonProtocol):
+async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
+                                         websocket: WebSocketCommonProtocol, session: Session):
     """
     requests payload data for a given object via a given websocket
     """
@@ -184,7 +185,7 @@ async def request_payloads_for_extension(operation: "Operation", obj: SQLClass, 
         if ext.receive_payload_fn:
             try:
                 await websocket.send(create_field_request_message(obj, field))
-                await ext.receive_payload_fn(operation, obj, field, websocket)
+                await ext.receive_payload_fn(operation, obj, field, websocket, session)
             except Exception as e:
                 logger.exception(
                     f"Couldn't request extension {field} for object {obj}")
@@ -443,13 +444,16 @@ class Operation(Base):
                 filter(getattr(model, get_pk(model)) == operation.row_id).first()
 
             # retrieve the object from the PullMessage
-            pull_obj = container.query(model).\
-                filter(attr('__pk__') == operation.row_id).first()
+            qu = container.query(model).\
+                filter(attr('__pk__') == operation.row_id)
+            # breakpoint()
+            pull_obj = qu.first()
+            # pull_obj._session = session
             if pull_obj is None:
                 raise OperationError(
                     "no object backing the operation in container", operation)
             if obj is None:
-                await request_payloads_for_extension(operation, pull_obj, websocket)
+                await request_payloads_for_extension(operation, pull_obj, websocket, session)
                 session.add(pull_obj)
             else:
                 # Don't raise an exception if the incoming object is
