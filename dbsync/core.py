@@ -44,6 +44,13 @@ INTERNAL_SESSION_ATTR = '_dbsync_internal'
 
 
 SessionClass = sessionmaker(autoflush=False, expire_on_commit=False)
+
+
+def set_sessionmaker(sm: sessionmaker):
+    global SessionClass
+    SessionClass = sm
+
+
 def Session():
     s = SessionClass(bind=get_engine())
     s._model_changes = dict() # for flask-sqlalchemy

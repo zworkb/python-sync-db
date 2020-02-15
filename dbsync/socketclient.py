@@ -54,7 +54,7 @@ class GenericWSClient:
 
     async def connect_async(self, action: SocketAction = None):
         print(f"before connecting to {self.uri}")
-        ws = websockets.connect(self.uri)
+        ws = websockets.connect(self.uri, timeout=200)
 
         try:
             async with ws as self.websocket:

@@ -162,7 +162,6 @@ async def register(conn: SyncServerConnection):
     print(f"conn:{conn}")
     params = json.loads(await conn.socket.recv())
     print(f"register: {params}")
-
     res = server.handle_register()
     await conn.socket.send(json.dumps(res))
 

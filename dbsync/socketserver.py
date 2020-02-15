@@ -187,6 +187,7 @@ class GenericWSServer(object):
             async with websockets.serve(self.service, self.host, self.port, max_size=None) as self.server:
                 self._on_started()
                 await self.stopper
+            logger.warning(f"server stopped !!!!")
         except Exception as e:
             self.exception = e
             raise
