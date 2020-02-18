@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional, Dict, Any
 
 import sqlalchemy
@@ -15,7 +16,7 @@ from dbsync.createlogger import create_logger
 from dbsync.messages.codecs import encode_dict, SyncdbJSONEncoder
 from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
-from dbsync.models import Node, model_extensions, get_model_extension_for_obj
+from dbsync.models import Node, model_extensions, get_model_extension_for_obj, Version
 from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -103,6 +104,8 @@ class SyncClient(GenericWSClient):
 
 
     async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
+        # breakpoint()
+        new_version_id: int
         message = self.create_push_message()
         if not session:
             session = self.Session()
@@ -115,6 +118,7 @@ class SyncClient(GenericWSClient):
         # message_encoded = encode_dict(PushMessage)(message_json)
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
         await self.websocket.send(message_encoded)
+        session.commit()
         # breakpoint()
         async for msg_ in self.websocket:
             msg = json.loads(msg_)
@@ -122,10 +126,23 @@ class SyncClient(GenericWSClient):
             if msg['type'] == "request_field_payload":
                 logger.warn(f"obj from server:{msg}")
                 await self.send_field_payload(session, msg)
+            if msg['type'] == 'result':
+                new_version_id = msg['new_version_id']
+
             else:
                 logger.info(f"response from server:{msg}")
         else:
-            print("ENDE")
+            print("ENDE:",msg)
+
+        # EEEEK TODO
+        session.close_all()
+        session = self.Session()
+        session.add(
+            Version(version_id=new_version_id, created=datetime.now()))
+        for op in message.operations:
+            op.version_id = new_version_id
+
+        session.commit()
 
         if not message.operations:
             return {}

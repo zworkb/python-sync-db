@@ -11,7 +11,7 @@ from dbsync import models, core, wscommon
 from dbsync.client import PushRejected, PullSuggested
 from dbsync.client.wsclient import SyncClient
 from dbsync.messages.push import PushMessage
-from dbsync.models import Node, Operation
+from dbsync.models import Node, Operation, Version
 from dbsync.server.wsserver import SyncServer
 from dbsync.socketclient import GenericWSClient
 from dbsync.socketserver import Connection
@@ -188,6 +188,9 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     Bs = server_session.query(B).all()
     assert len(Bs) > 0
+
+    versions = client_session.query(Version).all()
+    assert len(versions) > 0
 
 
 def test_subquery(sync_client, client_session):
