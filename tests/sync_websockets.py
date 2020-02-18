@@ -168,9 +168,10 @@ def test_push_message(sync_client, client_session, compress_info):
 @pytest.mark.asyncio
 async def test_push(sync_server, sync_client_registered, server_session, client_session):
     addstuff(sync_client_registered.Session)
+    # addstuff(core.Session)
     # sync_client.register()
     # sync_client.connect()
-    nodes=client_session.query(Node).all()
+    nodes = client_session.query(Node).all()
     print(f"NODES:{nodes}")
     assert len(nodes) == 1
 
@@ -182,10 +183,10 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     await sync_client_registered.connect_async()
 
     # check if stuff got trasmitted
-    As=server_session.query(A).all()
+    As = server_session.query(A).all()
     assert len(As) > 0
 
-    Bs=server_session.query(B).all()
+    Bs = server_session.query(B).all()
     assert len(Bs) > 0
 
 

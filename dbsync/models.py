@@ -78,8 +78,8 @@ def extend(
         loadfn: Callable[[SQLClass], Any] = None,
         savefn: Callable[[SQLClass, Any], None] = None,
         deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None,
-        receive_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol], Coroutine[Any, Any, None]]] = None,
-        send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol], Coroutine[Any, Any, None]]] = None
+        receive_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol, Session], Coroutine[Any, Any, None]]] = None,
+        send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
 ):
     """
     Extends *model* with a field of name *fieldname* and type

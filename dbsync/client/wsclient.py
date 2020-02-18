@@ -32,7 +32,9 @@ class SyncClient(GenericWSClient):
 
     def __post_init__(self):
         if not self.Session:
-            self.Session = sessionmaker(bind=self.engine)
+            self.engine = core.get_engine()
+            self.Session = lambda: core.SessionClass(bind=self.engine)  # to behave like core.Session() but dont set the internal flag
+            # self.Session = sessionmaker(bind=self.engine)
 
     @property
     def register_url(self):
@@ -64,7 +66,6 @@ class SyncClient(GenericWSClient):
             return resp
 
 
-
     def create_push_message(self, session: Optional[sqlalchemy.orm.session.Session] = None,
                             extensions=True, do_compress=True) -> PushMessage:
 
@@ -74,7 +75,7 @@ class SyncClient(GenericWSClient):
 
         if not session:
             session = self.Session()  # TODO: p
-
+        # breakpoint()
         message = PushMessage()
         message.latest_version_id = core.get_latest_version_id(session=session)
         if do_compress:
@@ -114,7 +115,7 @@ class SyncClient(GenericWSClient):
         # message_encoded = encode_dict(PushMessage)(message_json)
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
         await self.websocket.send(message_encoded)
-
+        # breakpoint()
         async for msg_ in self.websocket:
             msg = json.loads(msg_)
             print("MSG:", msg)
@@ -123,6 +124,8 @@ class SyncClient(GenericWSClient):
                 await self.send_field_payload(session, msg)
             else:
                 logger.info(f"response from server:{msg}")
+        else:
+            print("ENDE")
 
         if not message.operations:
             return {}
