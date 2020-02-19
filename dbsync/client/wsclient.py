@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 import sqlalchemy
+from sqlalchemy import and_
 import websockets
 from dbsync import core, wscommon
 from dbsync.client import PushRejected, PullSuggested
@@ -16,7 +17,7 @@ from dbsync.createlogger import create_logger
 from dbsync.messages.codecs import encode_dict, SyncdbJSONEncoder
 from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
-from dbsync.models import Node, model_extensions, get_model_extension_for_obj, Version
+from dbsync.models import Node, model_extensions, get_model_extension_for_obj, Version, Operation
 from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -47,6 +48,7 @@ class SyncClient(GenericWSClient):
                        session=None):
         async with websockets.connect(self.register_url) as ws:
             #  TODO:conv to strings, parse the params at server side
+            logger.warn("register begin")
             params = dict(
                 extra=extra_data,
                 encode=encode,
@@ -61,7 +63,7 @@ class SyncClient(GenericWSClient):
             session.add(message.node)
 
             session.commit()
-
+            logger.warning("register finished")
 
             assert len(session.query(Node).all()) > 0
             return resp
@@ -132,15 +134,21 @@ class SyncClient(GenericWSClient):
             else:
                 logger.info(f"response from server:{msg}")
         else:
-            print("ENDE:",msg)
-
-        # EEEEK TODO
+            print("ENDE:")
+        # EEEEK TODO this is to prevent sqlite blocking due to other sessions
         session.close_all()
         session = self.Session()
         session.add(
             Version(version_id=new_version_id, created=datetime.now()))
-        for op in message.operations:
-            op.version_id = new_version_id
+
+        # because of the above reason (all sessions closed) we have to reselect the operations for updating
+        for (i,op) in enumerate(message.operations):
+            op1 = session.query(Operation).filter(
+                and_(
+                    Operation.row_id == op.row_id,
+                    Operation.command == op.command)
+            ).one()
+            op1.version_id = new_version_id
 
         session.commit()
 
