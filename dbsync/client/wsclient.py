@@ -138,17 +138,17 @@ class SyncClient(GenericWSClient):
         # EEEEK TODO this is to prevent sqlite blocking due to other sessions
         session.close_all()
         session = self.Session()
-        session.add(
-            Version(version_id=new_version_id, created=datetime.now()))
 
         # because of the above reason (all sessions closed) we have to reselect the operations for updating
         for (i,op) in enumerate(message.operations):
-            op1 = session.query(Operation).filter(
-                and_(
-                    Operation.row_id == op.row_id,
-                    Operation.command == op.command)
-            ).one()
-            op1.version_id = new_version_id
+            ops1 = session.query(Operation).filter(
+                Operation.row_id == op.row_id,
+            ).all()
+            for op1 in ops1:
+                op1.version_id = new_version_id
+
+        session.add(
+            Version(version_id=new_version_id, created=datetime.now()))
 
         session.commit()
 

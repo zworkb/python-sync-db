@@ -53,8 +53,8 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
 
         latest_version_id = core.get_latest_version_id(session=session)
         if latest_version_id != pushmsg.latest_version_id:
-            exc = "version identifier isn't the latest one; "\
-                "given: %s" % pushmsg.latest_version_id
+            exc = f"version identifier isn't the latest one; "\
+                f"incoming: {pushmsg.latest_version_id}, on server:{latest_version_id}"
             if latest_version_id is None:
                 raise PushRejected(exc)
             if pushmsg.latest_version_id is None:
