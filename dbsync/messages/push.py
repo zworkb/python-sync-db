@@ -27,7 +27,7 @@ from dbsync.models import Node, Operation, SQLClass
 from dbsync.messages.base import MessageQuery, BaseMessage
 from dbsync.messages.codecs import encode, encode_dict, decode, decode_dict
 
-logger = create_logger("push")
+logger = create_logger("messages.push")
 
 
 class PushMessage(BaseMessage):
@@ -142,8 +142,8 @@ class PushMessage(BaseMessage):
     def _sign(self) -> None:
         if self._secret is not None:
             text = self._secret + self._portion()
-            logger.warn(f"self._secret: {self._secret}")
-            logger.warn(f"self.portion: {self._portion()}")
+            logger.debug(f"self._secret: {self._secret}")
+            logger.debug(f"self.portion: {self._portion()}")
             self.key = hashlib.sha512(text.encode("utf-8")).hexdigest()
 
     def set_node(self, node):

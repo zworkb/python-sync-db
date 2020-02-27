@@ -30,8 +30,10 @@ SERVER_URL = f"ws://localhost:{PORT}/"
 Base = declarative_base()
 
 
-def datapath(fname=""):
-    path = f"./testblobs/{core.mode}"
+def datapath(fname="", mode=None):
+    if mode is None:
+        mode = core.mode
+    path = f"./testblobs/{mode}"
     if not os.path.exists(path):
         os.makedirs(path, 0o777, True)
     res = os.path.join(path, fname)
@@ -75,10 +77,10 @@ def addstuff(Session: sessionmaker):
     b3 = B(name="third b", a=a2)
 
     with open(datapath(b1.data), "w") as fh:
-        fh.write("b1" * 10_000_000)
+        fh.write("b1" * 10_000)
 
     with open(datapath(b2.data), "w") as fh:
-        fh.write("b2" * 10_000_000)
+        fh.write("b2" * 10_000)
 
     session = Session()
     session.add_all([a1, a2, a3,  b1, b2, b3])
@@ -91,6 +93,11 @@ def changestuff(Session: sessionmaker):
     b1, b2, b3 = session.query(B).all()
     a1.name = "first a modified"
     b2.a = a2
+    # lets change the files of b2
+    b2.name = "second b updated"
+    with open(datapath(b2.data), "w") as fh:
+        fh.write("b2 changed")
+
     session.delete(b3)
     session.commit()
 
@@ -108,7 +115,6 @@ def teardown(Session: sessionmaker):
 
 
 # demos the the extension, the two handler functions do nothing
-
 
 
 async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonProtocol, session: Session):

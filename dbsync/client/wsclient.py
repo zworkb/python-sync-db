@@ -112,6 +112,7 @@ class SyncClient(GenericWSClient):
         if not session:
             session = self.Session()
 
+        logger.info(f"number of operations: {len(message.operations)}")
         if not message.operations:
             return {}
 
@@ -143,7 +144,7 @@ class SyncClient(GenericWSClient):
         session = self.Session()
 
         # because of the above reason (all sessions closed) we have to reselect the operations for updating
-        for (i,op) in enumerate(message.operations):
+        for (i, op) in enumerate(message.operations):
             ops1 = session.query(Operation).filter(
                 Operation.row_id == op.row_id,
             ).all()

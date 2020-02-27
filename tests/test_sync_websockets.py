@@ -17,11 +17,10 @@ from dbsync.socketclient import GenericWSClient
 from dbsync.socketserver import Connection
 
 
-from tests.models_websockets import SERVER_URL, addstuff, changestuff, A, B
+from tests.models_websockets import SERVER_URL, addstuff, changestuff, A, B, datapath
 from .models_websockets import PORT
 from .server_setup import sync_server, server_session, server_db
 from .client_setup import sync_client, client_session, sync_client_registered, client_db
-
 
 
 @SyncServer.handler("/counter")
@@ -30,6 +29,7 @@ async def counter(conn: Connection):
 
     for i in range(n):
         await conn.socket.send(str(i))
+
 
 @SyncServer.handler("/fuckup")
 async def fuckup(conn: Connection):
@@ -40,7 +40,6 @@ async def fuckup(conn: Connection):
     raise PushRejected("fucked up on purpose")
     # return 1/0
     # raise Exception("this was on purpose")
-
 
 
 @pytest.mark.asyncio
@@ -83,6 +82,9 @@ async def test_fuckup(sync_server):
 
 @pytest.mark.asyncio
 async def test_server_only(sync_server):
+    """
+    this one tests just the server, client side is done using websockets, but not SyncClient
+    """
     async with websockets.connect(f"ws://localhost:{PORT}/counter") as ws:
         await ws.send("5")
         async for resp in ws:
@@ -190,7 +192,23 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     assert len(Bs) > 0
 
     versions = client_session.query(Version).all()
-    assert len(versions) > 0
+    assert len(versions) == 1
+
+    # and now change something
+    changestuff(sync_client_registered.Session)
+
+
+    await sync_client_registered.connect_async()
+
+    b2 = server_session.query(B).filter(B.name == "second b updated").one()
+    # check if data have been transferred
+    fpath = datapath(b2.data, "server")
+    with open(fpath) as fh:
+        data = fh.read()
+        assert data == "b2 changed"
+
+    versions = client_session.query(Version).all()
+    assert len(versions) == 2
 
 
 def test_subquery(sync_client, client_session):

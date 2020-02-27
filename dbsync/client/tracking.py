@@ -32,7 +32,7 @@ _operations_queue: Deque[Operation] = deque()
 
 
 def flush_operations(committed_session):
-    "Flush operations after a commit has been issued."
+    """Flush operations after a commit has been issued."""
     if not _operations_queue or \
             getattr(committed_session, core.INTERNAL_SESSION_ATTR, False):
         return
@@ -47,7 +47,7 @@ def flush_operations(committed_session):
 
 
 def empty_queue(*args):
-    "Empty the operations queue."
+    """Empty the operations queue."""
     session = None if not args else args[0]
     if getattr(session, core.INTERNAL_SESSION_ATTR, False):
         return

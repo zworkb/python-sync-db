@@ -78,7 +78,7 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
             for key, value in zip(uc['columns'], uc['new_values']):
                 setattr(obj, key, value)
         for obj in conflicting_objects:
-            make_transient(obj) # remove from session
+            make_transient(obj)  # remove from session
         for model in set(type(obj) for obj in conflicting_objects):
             pk_name = get_pk(model)
             pks = [getattr(obj, pk_name)
