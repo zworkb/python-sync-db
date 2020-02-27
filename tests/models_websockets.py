@@ -93,6 +93,8 @@ def changestuff(Session: sessionmaker):
     b1, b2, b3 = session.query(B).all()
     a1.name = "first a modified"
     b2.a = a2
+    # lets change b1
+    b1.name = "first b updated"
     # lets change the files of b2
     b2.name = "second b updated"
     with open(datapath(b2.data), "w") as fh:

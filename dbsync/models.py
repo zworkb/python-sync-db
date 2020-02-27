@@ -471,11 +471,14 @@ class Operation(Base):
 
         elif operation.command == 'u':
             obj = query_model(session, model).\
-                filter(getattr(model, get_pk(model)) == operation.row_id).first()
-            if obj is None:
+                filter(getattr(model, get_pk(model)) == operation.row_id).one_or_none()
+            if obj is not None:
+                await request_payloads_for_extension(operation, obj, websocket, session)
+            else:
                 # For now, the record will be created again, but is an
                 # error because nothing should be deleted without
                 # using dbsync
+                # XXX: fix that
                 # raise OperationError(
                 #     "the referenced object doesn't exist in database", operation)
                 logger.warning(
