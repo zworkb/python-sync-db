@@ -112,10 +112,13 @@ class SyncClient(GenericWSClient):
         if not session:
             session = self.Session()
 
+        if not message.operations:
+            return {}
+
         node = session.query(Node).order_by(Node.node_id.desc()).first()
         message.set_node(node)  # TODO to should be migrated to GUID and ordered by creation date
-        logger.warn(f"message key={message.key}")
-        logger.warn(f"message secret={message._secret}")
+        logger.debug(f"message key={message.key}")
+        logger.debug(f"message secret={message._secret}")
         message_json = message.to_json(include_operations=True)
         # message_encoded = encode_dict(PushMessage)(message_json)
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
@@ -152,8 +155,7 @@ class SyncClient(GenericWSClient):
 
         session.commit()
 
-        if not message.operations:
-            return {}
+
 
     def request_push(self):
         ...

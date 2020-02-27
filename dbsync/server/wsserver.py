@@ -128,6 +128,7 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
             listener(session, pushmsg)
 
         # return the new version id back to the client
+        logger.info(f"RESULT SERVER SAYS: {version}")
         await connection.socket.send(json.dumps(
             dict(
                 type="result",

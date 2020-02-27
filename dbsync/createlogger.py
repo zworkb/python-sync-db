@@ -2,9 +2,10 @@ import logging
 from sys import stdout
 
 
-def create_logger(name):
+def create_logger(name, level: int = logging.INFO):
     logger = logging.getLogger(name)
-    # logger.setLevel(logging.DEBUG)
+
+    logger.setLevel(level)
     handler = logging.StreamHandler(stdout)
     handler.setFormatter(logging.Formatter("%(levelname)s : %(name)s :: %(funcName)s() : %(message)s"))
     logger.addHandler(handler)
