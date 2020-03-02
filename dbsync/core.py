@@ -189,6 +189,14 @@ def table_id(tablename: str) -> Optional[int]:
         return None
 
 
+def table_name_for_id(id: int) -> Optional[str]:
+    for (k,v) in synched_models.tables.items:
+        if v == id:
+            return k
+
+    return None
+
+
 def tracked_model(operation: Operation) -> Optional[SQLClass]:
     "Get's the tracked model (SA mapped class) for this operation."
     return synched_models.ids.get(operation.content_type_id, null_model).model
@@ -325,7 +333,7 @@ def with_transaction_async(include_extensions=True):
         async def wrapped(*args, **kwargs):
             extensions = kwargs.pop('include_extensions', include_extensions)
             # breakpoint()
-            session = Session()
+            session: Session = Session()
             previous_state = dialects.begin_transaction(session)
             added = []
             deleted = []

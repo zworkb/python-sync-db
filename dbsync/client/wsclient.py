@@ -48,7 +48,7 @@ class SyncClient(GenericWSClient):
                        session=None):
         async with websockets.connect(self.register_url) as ws:
             #  TODO:conv to strings, parse the params at server side
-            logger.warn("register begin")
+            logger.debug("register begin")
             params = dict(
                 extra=extra_data,
                 encode=encode,
@@ -63,7 +63,7 @@ class SyncClient(GenericWSClient):
             session.add(message.node)
 
             session.commit()
-            logger.warning("register finished")
+            logger.debug("register finished")
 
             assert len(session.query(Node).all()) > 0
             return resp
@@ -90,7 +90,7 @@ class SyncClient(GenericWSClient):
 
     async def send_field_payload(self, session: sqlalchemy.orm.Session, msg: Dict[str, Any]):
         ...
-        print(f"!!send_field_payload:{msg}")
+        logger.debug(f"send_field_payload:{msg}")
         # breakpoint()
         module = importlib.import_module(msg['package_name'])
         klass = getattr(module, msg['class_name'])
@@ -99,7 +99,7 @@ class SyncClient(GenericWSClient):
 
         extension = get_model_extension_for_obj(obj)
 
-        print("EXT:", extension)
+        logger.debug(f"model extension: {extension}")
         fieldname = msg['field_name']
         extension_field = extension[fieldname]
         await extension_field.send_payload_fn(obj, fieldname, self.websocket, session)
@@ -118,27 +118,29 @@ class SyncClient(GenericWSClient):
 
         node = session.query(Node).order_by(Node.node_id.desc()).first()
         message.set_node(node)  # TODO to should be migrated to GUID and ordered by creation date
-        logger.debug(f"message key={message.key}")
-        logger.debug(f"message secret={message._secret}")
+        logger.info(f"message key={message.key}")
+        logger.info(f"message secret={message._secret}")
         message_json = message.to_json(include_operations=True)
         # message_encoded = encode_dict(PushMessage)(message_json)
-        message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder)
+        message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder, indent=4)
         await self.websocket.send(message_encoded)
         session.commit()
-        # breakpoint()
+        logger.debug(f"message: {message_encoded}")
+        
+        # accept incoming requests for payload data (optional)
         async for msg_ in self.websocket:
             msg = json.loads(msg_)
-            print("MSG:", msg)
+            # logger.debug(f"msg: {msg}")
             if msg['type'] == "request_field_payload":
-                logger.warn(f"obj from server:{msg}")
+                logger.info(f"obj from server:{msg}")
                 await self.send_field_payload(session, msg)
             if msg['type'] == 'result':
                 new_version_id = msg['new_version_id']
 
             else:
                 logger.info(f"response from server:{msg}")
-        else:
-            print("ENDE:")
+        # else:
+        #     print("ENDE:")
         # EEEEK TODO this is to prevent sqlite blocking due to other sessions
         session.close_all()
         session = self.Session()
@@ -155,8 +157,6 @@ class SyncClient(GenericWSClient):
             Version(version_id=new_version_id, created=datetime.now()))
 
         session.commit()
-
-
 
     def request_push(self):
         ...

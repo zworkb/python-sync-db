@@ -453,6 +453,7 @@ class Operation(Base):
                 raise OperationError(
                     "no object backing the operation in container", operation)
             if obj is None:
+                logger.info(f"insert: calling request_payloads_for_extension for: {pull_obj.id}")
                 await request_payloads_for_extension(operation, pull_obj, websocket, session)
                 session.add(pull_obj)
             else:
@@ -473,6 +474,8 @@ class Operation(Base):
             obj = query_model(session, model).\
                 filter(getattr(model, get_pk(model)) == operation.row_id).one_or_none()
             if obj is not None:
+                logger.info(f"update: calling request_payloads_for_extension for: {obj.id}")
+                # breakpoint()
                 await request_payloads_for_extension(operation, obj, websocket, session)
             else:
                 # For now, the record will be created again, but is an

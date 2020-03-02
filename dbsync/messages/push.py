@@ -92,8 +92,17 @@ class PushMessage(BaseMessage):
         self.key = decode(types.String())(data['key'])
         self.latest_version_id = decode(types.Integer())(
             data['latest_version_id'])
-        self.operations = list(map(partial(object_from_dict, Operation),
-                                   list(map(decode_dict(Operation), data.get('operations', [])))))
+        self.operations = \
+            list(
+                map(
+                    partial(object_from_dict, Operation),
+                    list(
+                        map(
+                            decode_dict(Operation), data.get('operations', [])
+                        )
+                    )
+                )
+            )
 
     def query(self, model: SQLClass):
         """Returns a query object for this message."""
@@ -162,8 +171,8 @@ class PushMessage(BaseMessage):
         if node is None:
             raise LookupError(f"node with id {self.node_id} not found")
         text = node.secret + self._portion()
-        logger.warn(f"secret: {node.secret}")
-        logger.warn(f"_portion: {self._portion()}")
+        logger.debug(f"secret: {node.secret}")
+        logger.debug(f"_portion: {self._portion()}")
 
         digest = hashlib.sha512(text.encode("utf-8")).hexdigest()
         return node is not None and \

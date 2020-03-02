@@ -25,8 +25,10 @@ from dbsync.utils import get_pk, properties_dict
 
 logger = create_logger("dbsync-server")
 
+
 class SyncServerConnection(Connection):
     ...
+
 
 @dataclass
 class SyncServer(GenericWSServer):
@@ -46,10 +48,11 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
     async for msg in connection.socket:
         msg_json = json.loads(msg)
         pushmsg = PushMessage(msg_json)
-        print(f"PUSHMSG:{pushmsg}")
+        # print(f"pushmsg: {msg}")
+        for op in pushmsg.operations:
+            logger.info(f"operation: {op}")
         # await connection.socket.send(f"answer is:{msg}")
-        logger.warn(f"message key={pushmsg.key}")
-        # logger.warn(f"message secret={pushmsg._secret}")
+        logger.info(f"message key={pushmsg.key}")
 
         latest_version_id = core.get_latest_version_id(session=session)
         if latest_version_id != pushmsg.latest_version_id:
@@ -140,8 +143,7 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
 
 @SyncServer.handler("/status")
 async def status(connection: Connection):
-    print("STATUS")
-    logger.warn("STATUS")
+    logger.info("STATUS")
     res = dict(
         id=connection.server.id,
         connections=[
