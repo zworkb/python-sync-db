@@ -21,7 +21,10 @@ import dbsync
 from dbsync import client, models, core
 
 server_db = "./test_server.db"
-client_db = "./test_client.db"
+
+
+def client_db():
+    return f"./test_client_{os.getpid()}.db"
 
 
 PORT = 7081

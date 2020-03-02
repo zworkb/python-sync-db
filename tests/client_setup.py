@@ -17,23 +17,22 @@ def register_client_tracking():
     client.track(B)
 
 
-@pytest.fixture(scope="function")
-def sync_client():
+def create_sync_client():
     from dbsync import core
     core.mode = "client"
+    dbname = client_db()
     try:
-        os.remove(client_db)
+        os.remove(dbname)
     except FileNotFoundError:
-        print(f"ignore non existing file {client_db}")
+        print(f"ignore non existing file {dbname}")
 
-    engine_client = create_engine(f"sqlite:///{client_db}")
+    engine_client = create_engine(f"sqlite:///{dbname}")
     Base.metadata.create_all(engine_client)
     dbsync.set_engine(engine_client)
     dbsync.create_all()
 
     register_client_tracking()
-    
-    
+
     try:
         asyncio.get_event_loop()
     except RuntimeError as e:
@@ -41,6 +40,11 @@ def sync_client():
     clientws = SyncClient(port=PORT, path="sync", engine=engine_client)
     # client.connect()
     return clientws
+
+
+@pytest.fixture(scope="function")
+def sync_client():
+    return create_sync_client()
 
 
 @pytest.fixture(scope="function")
@@ -55,7 +59,8 @@ def client_session() -> sqlalchemy.orm.session.Session:
     """
     provides a session object to the server database for sync checking
     """
-    engine_client = create_engine(f"sqlite:///{client_db}")
+    dbname = client_db()
+    engine_client = create_engine(f"sqlite:///{dbname}")
     Session = sessionmaker(engine_client)
     res = Session()
 

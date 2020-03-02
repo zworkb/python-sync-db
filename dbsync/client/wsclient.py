@@ -107,7 +107,7 @@ class SyncClient(GenericWSClient):
 
     async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
         # breakpoint()
-        new_version_id: int
+        new_version_id: Optional[int]
         message = self.create_push_message()
         if not session:
             session = self.Session()
@@ -158,8 +158,12 @@ class SyncClient(GenericWSClient):
 
         session.commit()
 
-    def request_push(self):
-        ...
+    # def request_push(self):
+    #     ...
+
+    async def sync(self):
+        return await self.push()
+
 
     async def run(self):
-        return await self.push()
+        return await self.sync()
