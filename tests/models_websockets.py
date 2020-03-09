@@ -23,8 +23,10 @@ from dbsync import client, models, core
 server_db = "./test_server.db"
 
 
-def client_db():
-    return f"./test_client_{os.getpid()}.db"
+def client_db(pid=None):
+    if pid is None:
+        pid = os.getpid()
+    return f"./test_client_{pid}.db"
 
 
 PORT = 7081
@@ -33,10 +35,15 @@ SERVER_URL = f"ws://localhost:{PORT}/"
 Base = declarative_base()
 
 
-def datapath(fname="", mode=None):
+def datapath(fname="", mode=None, pid=None):
     if mode is None:
         mode = core.mode
-    path = f"./testblobs/{mode}"
+
+    if pid is None:
+        pid = os.getpid()
+    path0 = "server" if mode == "server" else f"client/{pid}"
+
+    path = f"./testblobs/{path0}"
     if not os.path.exists(path):
         os.makedirs(path, 0o777, True)
     res = os.path.join(path, fname)
@@ -71,13 +78,13 @@ class B(Base):
             self.id, self.name, self.a_id)
 
 
-def addstuff(Session: sessionmaker):
-    a1 = A(name="first a")
-    a2 = A(name="second a")
-    a3 = A(name="third a")
-    b1 = B(name="first b", a=a1, data="b1.txt")
-    b2 = B(name="second b", a=a1, data="b2.txt")
-    b3 = B(name="third b", a=a2)
+def addstuff(Session: sessionmaker, par: str = ""):
+    a1 = A(name=f"first a {par}")
+    a2 = A(name=f"second a {par}")
+    a3 = A(name=f"third a {par}")
+    b1 = B(name=f"first b {par}", a=a1, data=f"b1{par}.txt")
+    b2 = B(name=f"second b {par}", a=a1, data=f"b2{par}.txt")
+    b3 = B(name=f"third b {par}", a=a2)
 
     with open(datapath(b1.data), "w") as fh:
         fh.write("b1" * 10_000)

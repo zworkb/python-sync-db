@@ -47,11 +47,15 @@ def sync_client():
     return create_sync_client()
 
 
-@pytest.fixture(scope="function")
-def sync_client_registered(sync_client):
-
+def create_sync_client_registered():
+    sync_client = create_sync_client()
     asyncio.run(sync_client.register())
     return sync_client
+
+
+@pytest.fixture(scope="function")
+def sync_client_registered():
+    return create_sync_client_registered()
 
 
 @pytest.fixture(scope="function")
@@ -65,3 +69,14 @@ def client_session() -> sqlalchemy.orm.session.Session:
     res = Session()
 
     return res
+
+##########################################
+
+
+def create_sync_client_():
+    ...
+
+
+def create_sync_client_mp():
+    ...
+
