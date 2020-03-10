@@ -4,6 +4,7 @@ import datetime
 import os
 import time
 import uuid
+from typing import Union
 
 import pytest
 from websockets import WebSocketCommonProtocol
@@ -35,12 +36,13 @@ SERVER_URL = f"ws://localhost:{PORT}/"
 Base = declarative_base()
 
 
-def datapath(fname="", mode=None, pid=None):
+def datapath(fname="", mode=None, pid=""):
     if mode is None:
         mode = core.mode
 
     if pid is None:
         pid = os.getpid()
+
     path0 = "server" if mode == "server" else f"client/{pid}"
 
     path = f"./testblobs/{path0}"
@@ -57,6 +59,7 @@ class A(Base):
 
     id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String)
+    pid = Column(String)
 
     def __repr__(self):
         return u"<A id:{0} name:{1}>".format(self.id, self.name)
@@ -70,6 +73,7 @@ class B(Base):
     name = Column(String)
     a_id = Column(GUID, ForeignKey("test_a.id"))
     data = Column(String)
+    pid = Column(String)
 
     a = relationship(A, backref="bs")
 
@@ -78,18 +82,19 @@ class B(Base):
             self.id, self.name, self.a_id)
 
 
-def addstuff(Session: sessionmaker, par: str = ""):
-    a1 = A(name=f"first a {par}")
-    a2 = A(name=f"second a {par}")
-    a3 = A(name=f"third a {par}")
-    b1 = B(name=f"first b {par}", a=a1, data=f"b1{par}.txt")
-    b2 = B(name=f"second b {par}", a=a1, data=f"b2{par}.txt")
-    b3 = B(name=f"third b {par}", a=a2)
+def addstuff(Session: sessionmaker, par: Union[str, int] = ""):
+    print("ADDSTUFF", par)
+    a1 = A(name=f"first a {par}", pid=par)
+    a2 = A(name=f"second a {par}", pid=par)
+    a3 = A(name=f"third a {par}", pid=par)
+    b1 = B(name=f"first b {par}", a=a1, data=f"b1{par}.txt", pid=par)
+    b2 = B(name=f"second b {par}", a=a1, data=f"b2{par}.txt", pid=par)
+    b3 = B(name=f"third b {par}", a=a2, pid=par)
 
-    with open(datapath(b1.data), "w") as fh:
+    with open(datapath(b1.data, pid=par), "w") as fh:
         fh.write("b1" * 10_000)
 
-    with open(datapath(b2.data), "w") as fh:
+    with open(datapath(b2.data, pid=par), "w") as fh:
         fh.write("b2" * 10_000)
 
     session = Session()
@@ -97,7 +102,7 @@ def addstuff(Session: sessionmaker, par: str = ""):
     session.commit()
 
 
-def changestuff(Session: sessionmaker):
+def changestuff(Session: sessionmaker, par=""):
     session = Session()
     a1, a2, a3 = session.query(A).all()
     b1, b2, b3 = session.query(B).all()
@@ -107,7 +112,7 @@ def changestuff(Session: sessionmaker):
     b1.name = "first b updated"
     # lets change the files of b2
     b2.name = "second b updated"
-    with open(datapath(b2.data), "w") as fh:
+    with open(datapath(b2.data, pid=par), "w") as fh:
         fh.write("b2 changed")
 
     session.delete(b3)
@@ -139,7 +144,7 @@ async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonPr
     print(f"SEND PAYLOAD DATA: obj{obj}")
     if obj.data:
         await websocket.send(json.dumps(True))
-        with open(datapath(obj.data), "r") as fh:
+        with open(datapath(obj.data, pid=obj.pid), "r") as fh:
             await websocket.send(fh.read())
     else:
         await websocket.send(json.dumps(False))

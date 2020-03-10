@@ -213,21 +213,47 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     assert len(versions) == 2
 
 
-def test_push_in_process(nr: int):
-    print("test in process")
-    sync_client: SyncClient = create_sync_client_registered()
-    addstuff(sync_client.Session, f"{os.getpid()}")
+def push_in_process(nr: int):
+    """
+    have to start different clients in separate processes
+    because dbsync lives with global variables and thus
+    different clients would interfere
+    """
+    print("@@@@@@@@@@test in process", nr)
+    sync_client: SyncClient = create_sync_client_registered(nr)
+    addstuff(sync_client.Session, nr)
     asyncio.run(sync_client.connect_async())
 
     return 42
 
 
 @pytest.mark.asyncio
-async def test_with_two_clients(sync_server, sync_client_registered, server_session, client_session):
+async def test_push_with_multiple_clients(sync_server, sync_client_registered, server_session, client_session):
     addstuff(sync_client_registered.Session)
     with multiprocessing.Pool() as pool:
-        res = pool.map(test_push_in_process, [1,2,3])
+        res = pool.map(push_in_process, [1, 2, 3])
         print(f"res={res}")
+
+
+def push_and_change_in_process(nr: int):
+    sync_client: SyncClient = create_sync_client_registered(nr)
+    addstuff(sync_client.Session, nr)
+    asyncio.run(sync_client.connect_async())
+    changestuff(sync_client.Session, nr)
+    try:
+        asyncio.run(sync_client.connect_async())
+    except PullSuggested as ex:
+        print(f"PULL SUGGESTED: {nr}")
+        raise
+
+    return 42
+
+
+@pytest.mark.asyncio
+async def test_push2_with_multiple_clients(sync_server, sync_client_registered, server_session, client_session):
+    addstuff(sync_client_registered.Session)
+    with multiprocessing.Pool() as pool:
+        pool.map(push_and_change_in_process, [1, 2])
 
 
 def test_subquery(sync_client, client_session):
