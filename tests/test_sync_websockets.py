@@ -250,7 +250,7 @@ def push_and_change_in_process(nr: int):
 
 
 @pytest.mark.asyncio
-async def test_push2_with_multiple_clients(sync_server, sync_client_registered, server_session, client_session):
+async def test_push_and_change_with_multiple_clients(sync_server, sync_client_registered, server_session, client_session):
     addstuff(sync_client_registered.Session)
     with multiprocessing.Pool() as pool:
         pool.map(push_and_change_in_process, [1, 2])

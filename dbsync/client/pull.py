@@ -158,7 +158,7 @@ def merge(pull_message, session=None):
     # III) third phase: perform pull operations, when allowed and
     # while resolving conflicts
     def extract(op, conflicts):
-        return [local for remote, local in conflicts if remote is op]
+        return [local for (remote, local) in conflicts if remote is op]
 
     def purgelocal(local):
         session.delete(local)

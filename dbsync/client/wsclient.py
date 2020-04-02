@@ -162,7 +162,10 @@ class SyncClient(GenericWSClient):
     #     ...
 
     async def sync(self):
-        return await self.push()
+        try:
+            return await self.push()
+        except PullSuggested as ex:
+            raise
 
 
     async def run(self):
