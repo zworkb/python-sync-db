@@ -189,4 +189,4 @@ class SyncClient(GenericWSClient):
                         pass # handle exception
 
     async def synchronize(self):
-        return await self.connect_async(self.run_synchronize)
+        return await self.connect_async(method=self.run_synchronize)

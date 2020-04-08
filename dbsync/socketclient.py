@@ -14,6 +14,13 @@ SocketAction = Optional[
     ]
 ]
 
+SocketMethod = Optional[
+    Callable[
+        [],
+        Coroutine[Any, Any, None]
+    ]
+]
+
 logger = create_logger("socketclient")
 
 @dataclass
@@ -48,13 +55,14 @@ class GenericWSClient:
     def base_uri(self):
         return f"ws://{self.host}:{self.port}"
 
-    @property
-    def uri(self):
-        return f"{self.base_uri}/{self.path}"
+    def uri(self, path=""):
+        if not path:
+            path = self.path
+        return f"{self.base_uri}/{path}"
 
-    async def connect_async(self, action: SocketAction = None):
-        print(f"before connecting to {self.uri}")
-        ws = websockets.connect(self.uri, timeout=200)
+    async def connect_async(self, *, action: SocketAction = None, method: SocketAction = None, path=""):
+        print(f"before connecting to {self.uri(path)}")
+        ws = websockets.connect(self.uri(path), timeout=200)
 
         try:
             async with ws as self.websocket:
@@ -65,10 +73,9 @@ class GenericWSClient:
                 self.exception = None
                 logger.info("connected..")
                 if action:
-                    try: # action is a function Callable[[GenericWSClient], Any] XXX: make that better
-                        await action(self)
-                    except TypeError: # action is a method of the client
-                        await action()
+                    await action(self)
+                elif method:
+                    await method()
                 else:
                     await self.run()
 
