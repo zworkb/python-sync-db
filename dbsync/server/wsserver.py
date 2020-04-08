@@ -40,9 +40,9 @@ class SyncServer(GenericWSServer):
             self.Session = sessionmaker(bind=self.engine)
 
 
-@SyncServer.handler("/sync")
+@SyncServer.handler("/push")
 @with_transaction_async()
-async def sync(connection: Connection, session: sqlalchemy.orm.Session):
+async def push(connection: Connection, session: sqlalchemy.orm.Session):
     # if not hasattr(session, "_woodmaster_container"):
     #     breakpoint()
     async for msg in connection.socket:

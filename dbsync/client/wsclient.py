@@ -166,27 +166,21 @@ class SyncClient(GenericWSClient):
 
         session.commit()
 
+    async def run_pull(self, session: Optional[sqlalchemy.orm.session.Session] = None):
+        new_version_id: Optional[int]
+        message = self.create_push_message()
+        if not session:
+            session = self.Session()
 
-    async def run_synchronize(self, tries=3):
-        # for _ in range(tries):
-        #     try:
-        #         return await self.run_push()
-        #     except PullSuggested as ex:
-        #         raise
-        #     except Exception as ex:
-        #         breakpoint()
-        #         raise
-        #         # breakpoint()
-
+    async def synchronize(self):
+        tries = 3
         for _ in range(tries):
             try:
-                return await self.run_push()
+                return await self.connect_async(method=self.run_push, path="push")
             except PushRejected:
                 try:
-                    return self.run_pull()
+                    return await self.connect_async(method=self.run_pull, path="pull")
                 except UniqueConstraintError as e:
                     for model, pk, columns in e.entries:
                         pass # handle exception
 
-    async def synchronize(self):
-        return await self.connect_async(method=self.run_synchronize)
