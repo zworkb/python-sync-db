@@ -184,7 +184,7 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     # after registration there should be one node in the server database
     assert len(server_nodes) == 1
 
-    await sync_client_registered.connect_async()
+    await sync_client_registered.synchronize()
 
     # check if stuff got trasmitted
     As = server_session.query(A).all()
@@ -200,7 +200,7 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     changestuff(sync_client_registered.Session)
 
 
-    await sync_client_registered.connect_async()
+    await sync_client_registered.synchronize()
 
     b2 = server_session.query(B).filter(B.name == "second b updated").one()
     # check if data have been transferred
@@ -215,46 +215,90 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
 def push_in_process(nr: int):
     """
+    simply invokes synchronize() but
     have to start different clients in separate processes
     because dbsync lives with global variables and thus
     different clients would interfere
     """
-    print("@@@@@@@@@@test in process", nr)
+    print(">>>>>>>>>>>>>>>>>test in process", nr)
     sync_client: SyncClient = create_sync_client_registered(nr)
     addstuff(sync_client.Session, nr)
-    asyncio.run(sync_client.connect_async())
+    asyncio.run(sync_client.synchronize())
+    print("<<<<<<<<<<<<<<<<<test in process", nr)
 
     return 42
 
 
 @pytest.mark.asyncio
-async def test_push_with_multiple_clients(sync_server, sync_client_registered, server_session, client_session):
+async def test_push_with_multiple_clients_parallel(sync_server, sync_client_registered, server_session, client_session):
     addstuff(sync_client_registered.Session)
+    ids = [1, 2, 3]
     with multiprocessing.Pool() as pool:
-        res = pool.map(push_in_process, [1, 2, 3])
+        res = pool.map(push_in_process, ids)
         print(f"res={res}")
 
 
+@pytest.mark.asyncio
+async def test_push_with_multiple_clients_sequential(sync_server, sync_client_registered, server_session, client_session):
+    addstuff(sync_client_registered.Session)
+    ids = [1, 2, 3]
+    with multiprocessing.Pool() as pool:
+        for id in ids:
+            res = pool.apply(push_in_process, [id])
+            print(f"res={res}")
+
+
 def push_and_change_in_process(nr: int):
+    """
+    syncs data, modifies local data and syncs again
+    """
+    print(">>>>>>>>>>>>>>>>>test in process", nr)
     sync_client: SyncClient = create_sync_client_registered(nr)
     addstuff(sync_client.Session, nr)
-    asyncio.run(sync_client.connect_async())
+    asyncio.run(sync_client.synchronize())
     changestuff(sync_client.Session, nr)
+
     try:
-        asyncio.run(sync_client.connect_async())
+        asyncio.run(sync_client.synchronize())
+        print("<<<<<<<<<<<<<< success test in process", nr)
     except PullSuggested as ex:
+        breakpoint()
         print(f"PULL SUGGESTED: {nr}")
+        print("<<<<<<<<<<<<<<test in process", nr)
         raise
+    except Exception as ex:
+        print(f"FAIL: {ex}")
+        print("<<<<<<<<<<<<<<test in process", nr)
 
     return 42
 
 
 @pytest.mark.asyncio
-async def test_push_and_change_with_multiple_clients(sync_server, sync_client_registered, server_session, client_session):
+async def test_push_and_change_with_multiple_clients_parallel(sync_server, sync_client_registered, server_session, client_session):
+    """
+    calls push_and_change_in_process in parallel
+    """
     addstuff(sync_client_registered.Session)
-    with multiprocessing.Pool() as pool:
-        pool.map(push_and_change_in_process, [1, 2])
+    try:
+        with multiprocessing.Pool() as pool:
+            pool.map(push_and_change_in_process, [1, 2,])
+    except PullSuggested as ex:
+        raise
 
+@pytest.mark.asyncio
+async def test_push_and_change_with_multiple_clients_sequential(sync_server, sync_client_registered, server_session, client_session):
+    """
+    calls push_and_change_in_process in sequential order
+    """
+    ids = [1, 2,]
+    addstuff(sync_client_registered.Session)
+    try:
+        with multiprocessing.Pool() as pool:
+            for id in ids:
+                res = pool.apply(push_and_change_in_process, [id])
+                print(f"res={res}")
+    except PullSuggested as ex:
+        raise
 
 def test_subquery(sync_client, client_session):
     addstuff(sync_client.Session)

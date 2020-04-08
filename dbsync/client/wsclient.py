@@ -9,7 +9,7 @@ import sqlalchemy
 from sqlalchemy import and_
 import websockets
 from dbsync import core, wscommon
-from dbsync.client import PushRejected, PullSuggested
+from dbsync.client import PushRejected, PullSuggested, UniqueConstraintError
 from dbsync.client.compression import compress
 from dbsync.client.net import post_request
 from dbsync.client.register import RegisterRejected
@@ -27,15 +27,18 @@ wscommon.register_exception(PullSuggested)
 
 logger = create_logger("wsclient")
 
+
 @dataclass
 class SyncClient(GenericWSClient):
     engine: Optional[Engine] = None
     Session: Optional[sessionmaker] = None
+    id: int = -1
 
     def __post_init__(self):
         if not self.Session:
             self.engine = core.get_engine()
-            self.Session = lambda: core.SessionClass(bind=self.engine)  # to behave like core.Session() but dont set the internal flag
+            self.Session = lambda: core.SessionClass(
+                bind=self.engine)  # to behave like core.Session() but dont set the internal flag
             # self.Session = sessionmaker(bind=self.engine)
 
     @property
@@ -67,7 +70,6 @@ class SyncClient(GenericWSClient):
 
             assert len(session.query(Node).all()) > 0
             return resp
-
 
     def create_push_message(self, session: Optional[sqlalchemy.orm.session.Session] = None,
                             extensions=True, do_compress=True) -> PushMessage:
@@ -104,8 +106,7 @@ class SyncClient(GenericWSClient):
         extension_field = extension[fieldname]
         await extension_field.send_payload_fn(obj, fieldname, self.websocket, session)
 
-
-    async def push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
+    async def run_push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
         # breakpoint()
         new_version_id: Optional[int]
         message = self.create_push_message()
@@ -123,22 +124,29 @@ class SyncClient(GenericWSClient):
         message_json = message.to_json(include_operations=True)
         # message_encoded = encode_dict(PushMessage)(message_json)
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder, indent=4)
+
+        # here it happens
         await self.websocket.send(message_encoded)
+
         session.commit()
         logger.debug(f"message: {message_encoded}")
-        
+        new_version_id = None
         # accept incoming requests for payload data (optional)
         async for msg_ in self.websocket:
+            print(f"$$$$$$$$$ client:{self.id} msg: {msg_}")
             msg = json.loads(msg_)
             # logger.debug(f"msg: {msg}")
             if msg['type'] == "request_field_payload":
                 logger.info(f"obj from server:{msg}")
                 await self.send_field_payload(session, msg)
-            if msg['type'] == 'result':
+            elif msg['type'] == 'result':
                 new_version_id = msg['new_version_id']
-
             else:
                 logger.info(f"response from server:{msg}")
+
+        if new_version_id is None:
+            raise ValueError("did not get a versionid from server")
+
         # else:
         #     print("ENDE:")
         # EEEEK TODO this is to prevent sqlite blocking due to other sessions
@@ -158,15 +166,27 @@ class SyncClient(GenericWSClient):
 
         session.commit()
 
-    # def request_push(self):
-    #     ...
 
-    async def sync(self):
-        try:
-            return await self.push()
-        except PullSuggested as ex:
-            raise
+    async def run_synchronize(self, tries=3):
+        # for _ in range(tries):
+        #     try:
+        #         return await self.run_push()
+        #     except PullSuggested as ex:
+        #         raise
+        #     except Exception as ex:
+        #         breakpoint()
+        #         raise
+        #         # breakpoint()
 
+        for _ in range(tries):
+            try:
+                return await self.run_push()
+            except PushRejected:
+                try:
+                    return self.run_pull()
+                except UniqueConstraintError as e:
+                    for model, pk, columns in e.entries:
+                        pass # handle exception
 
-    async def run(self):
-        return await self.sync()
+    async def synchronize(self):
+        return await self.connect_async(self.run_synchronize)

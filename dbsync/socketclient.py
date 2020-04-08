@@ -64,9 +64,14 @@ class GenericWSClient:
                 self.connection_status = "connected"
                 self.exception = None
                 logger.info("connected..")
-                await self.run()
                 if action:
-                    await action(self)
+                    try: # action is a function Callable[[GenericWSClient], Any] XXX: make that better
+                        await action(self)
+                    except TypeError: # action is a method of the client
+                        await action()
+                else:
+                    await self.run()
+
         except Exception as e:
             logger.exception(f"FAIL: {e}")
             self.exception = e
@@ -74,7 +79,8 @@ class GenericWSClient:
         finally:
 
             if self.websocket and self.websocket.close_code == 1001:
-                raise exception_from_dict(self.websocket.close_reason)
+                ex = exception_from_dict(self.websocket.close_reason)
+                raise ex
 
             if self.websocket and self.websocket.close_code == 1006:
                 logger.error(f"connection terminated abnormally [1006], reason:{self.websocket.close_reason}")

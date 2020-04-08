@@ -36,7 +36,8 @@ def exception_as_dict(ex):
         # strip it futrher down
         argstr = ",".join(ex.args)[:100]
         return dict(
-            type=ex.__class__.__name__,
+            type="exception",
+            extype=ex.__class__.__name__,
             args=[argstr]
         )
 
@@ -65,9 +66,10 @@ def exception_from_dict(ex: Union[str, Dict[str, Any]]) -> Exception:
         args = exdict["args"]
     except JSONDecodeError as e:
         args = [ex]
+
     try:
-        klass = eval(klassname)
+        klass = globals()[klassname] # eval(klassname)
         res = klass(*exdict["args"])
         return res
     except Exception as e:
-        return Exception(*args)
+        return Exception(klassname, *args)

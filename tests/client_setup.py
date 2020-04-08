@@ -37,7 +37,7 @@ def create_sync_client(pid: int = 0):
         asyncio.get_event_loop()
     except RuntimeError as e:
         asyncio.set_event_loop(asyncio.new_event_loop())
-    clientws = SyncClient(port=PORT, path="sync", engine=engine_client)
+    clientws = SyncClient(port=PORT, path="sync", engine=engine_client, id=pid)
     # client.connect()
     return clientws
 

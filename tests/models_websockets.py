@@ -109,11 +109,11 @@ def changestuff(Session: sessionmaker, par=""):
     a1.name = "first a modified"
     b2.a = a2
     # lets change b1
-    b1.name = "first b updated"
+    b1.name = f"first b {par} updated"
     # lets change the files of b2
-    b2.name = "second b updated"
+    b2.name = f"second b {par} updated"
     with open(datapath(b2.data, pid=par), "w") as fh:
-        fh.write("b2 changed")
+        fh.write(f"b2 {par} changed")
 
     session.delete(b3)
     session.commit()

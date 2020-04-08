@@ -65,7 +65,6 @@ async def sync(connection: Connection, session: sqlalchemy.orm.Session):
             if pushmsg.latest_version_id < latest_version_id:
                 raise PullSuggested(exc)
             raise PushRejected(exc)
-
         if not pushmsg.islegit(session):
             raise PushRejected("message isn't properly signed")
 
