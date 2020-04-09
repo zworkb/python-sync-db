@@ -80,7 +80,7 @@ class GenericWSClient:
                     await self.run()
 
         except Exception as e:
-            logger.exception(f"FAIL: {e}")
+            logger.exception(f"FAIL: {e.__class__.__name__}:{e}")
             self.exception = e
             raise
         finally:
@@ -88,9 +88,11 @@ class GenericWSClient:
             if self.websocket and self.websocket.close_code == 1001:
                 ex = exception_from_dict(self.websocket.close_reason)
                 raise ex
+            elif self.websocket and self.websocket.close_code != 1000:
+                errmsg = f"connection terminated abnormally [{self.websocket.close_code}], reason:{self.websocket.close_reason}"
+                logger.error(errmsg)
+                raise ConnectionError(errmsg)
 
-            if self.websocket and self.websocket.close_code == 1006:
-                logger.error(f"connection terminated abnormally [1006], reason:{self.websocket.close_reason}")
             self.connection_event.set()
             await self.on_disconnect()
             logger.warn(f"connection closed with code: {self.websocket.close_code}, reason:{self.websocket.close_reason}")

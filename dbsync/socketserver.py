@@ -128,18 +128,18 @@ class GenericWSServer(object):
                 await handler(connection)
             except Exception as e:
                 exdict = exception_as_dict(e)
-                reason=json.dumps(exdict)[:123]
+                logger.error(exdict)
+                reason=json.dumps(exdict)[:123] # limitation is because of size limit in Wbsockets protocol
+
                 await connection.socket.close(code=1001, reason=reason)
+                logger.info("exception sent")
                 # raise
         except Exception as e:
             logger.exception(f"exception occurred in service: {e}")
             raise
         finally:
-            logger.info("server socket closed")
             self.connections.remove(connection)
-
-        logger.info("server socket closed normally")
-
+            logger.info("server connection closed and removed")
     async def on_add_connection(self, connection):
         """
         default handler for added connections

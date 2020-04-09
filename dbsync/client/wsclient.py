@@ -126,8 +126,9 @@ class SyncClient(GenericWSClient):
         message_encoded = json.dumps(message_json, cls=SyncdbJSONEncoder, indent=4)
 
         # here it happens
+        logger.info("sending message to server")
         await self.websocket.send(message_encoded)
-
+        logger.info("message sent to server")
         session.commit()
         logger.debug(f"message: {message_encoded}")
         new_version_id = None
@@ -144,13 +145,16 @@ class SyncClient(GenericWSClient):
             else:
                 logger.info(f"response from server:{msg}")
 
-        if new_version_id is None:
-            raise ValueError("did not get a versionid from server")
 
         # else:
         #     print("ENDE:")
         # EEEEK TODO this is to prevent sqlite blocking due to other sessions
         session.close_all()
+        
+        if new_version_id is None:
+            return
+            # breakpoint()
+            # raise ValueError("did not get a versionid from server")
         session = self.Session()
 
         # because of the above reason (all sessions closed) we have to reselect the operations for updating
@@ -177,8 +181,10 @@ class SyncClient(GenericWSClient):
         for _ in range(tries):
             try:
                 return await self.connect_async(method=self.run_push, path="push")
-            except PushRejected:
+            except PullSuggested as ex:
                 try:
+                    breakpoint()
+                    raise
                     return await self.connect_async(method=self.run_pull, path="pull")
                 except UniqueConstraintError as e:
                     for model, pk, columns in e.entries:

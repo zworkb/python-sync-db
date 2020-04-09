@@ -43,8 +43,6 @@ class SyncServer(GenericWSServer):
 @SyncServer.handler("/push")
 @with_transaction_async()
 async def push(connection: Connection, session: sqlalchemy.orm.Session):
-    # if not hasattr(session, "_woodmaster_container"):
-    #     breakpoint()
     async for msg in connection.socket:
         msg_json = json.loads(msg)
         pushmsg = PushMessage(msg_json)
@@ -54,15 +52,20 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
         # await connection.socket.send(f"answer is:{msg}")
         logger.info(f"message key={pushmsg.key}")
 
+        # breakpoint()
         latest_version_id = core.get_latest_version_id(session=session)
         if latest_version_id != pushmsg.latest_version_id:
             exc = f"version identifier isn't the latest one; "\
                 f"incoming: {pushmsg.latest_version_id}, on server:{latest_version_id}"
+
             if latest_version_id is None:
+                logger.warn(exc)
                 raise PushRejected(exc)
             if pushmsg.latest_version_id is None:
+                logger.warn(exc)
                 raise PullSuggested(exc)
             if pushmsg.latest_version_id < latest_version_id:
+                logger.warn(exc)
                 raise PullSuggested(exc)
             raise PushRejected(exc)
         if not pushmsg.islegit(session):
@@ -138,6 +141,13 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
             )
         ))
         return {'new_version_id': version.version_id}
+
+
+@SyncServer.handler("/pull")
+@with_transaction_async()
+async def pull(connection: Connection, session: sqlalchemy.orm.Session):
+    async for msg in connection.socket:
+        msg_json = json.loads(msg)
 
 
 @SyncServer.handler("/status")
