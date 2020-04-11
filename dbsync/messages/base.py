@@ -130,11 +130,24 @@ class BaseMessage(object):
     def _from_raw(self, data):
 
         def getm(k):
-            return synched_models.model_names.get(k, null_model).model
+            res = synched_models.model_names.get(k, null_model).model
+            print(f"getm: {k} => {res}")
+            return res
 
-        for k, v, m in [k_v_m for k_v_m in
-                        [(k_v[0], k_v[1], getm(k_v[0])) for k_v in iter(list(data['payload'].items()))] if
-                        k_v_m[2] is not None]:
+        payload_items = list(data['payload'].items())
+
+        kvms = [
+            (k_v[0], k_v[1], getm(k_v[0]))
+            for k_v
+            in iter(payload_items)
+        ]
+
+        for (k, v, m) in \
+                [k_v_m
+                 for k_v_m in kvms
+                 if k_v_m[2] is not None
+                 ]:
+            # breakpoint()
             self.payload[k] = set(
                 [ObjectType(k, dict_[get_pk(m)], **dict_) for dict_ in map(decode_dict(m), v)])
 

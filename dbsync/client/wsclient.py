@@ -3,7 +3,7 @@ import importlib
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 
 import sqlalchemy
 from sqlalchemy import and_
@@ -12,9 +12,11 @@ from dbsync import core, wscommon
 from dbsync.client import PushRejected, PullSuggested, UniqueConstraintError
 from dbsync.client.compression import compress
 from dbsync.client.net import post_request
+from dbsync.client.pull import BadResponseError, merge
 from dbsync.client.register import RegisterRejected
 from dbsync.createlogger import create_logger
 from dbsync.messages.codecs import encode_dict, SyncdbJSONEncoder
+from dbsync.messages.pull import PullRequestMessage, PullMessage
 from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
 from dbsync.models import Node, model_extensions, get_model_extension_for_obj, Version, Operation
@@ -134,7 +136,7 @@ class SyncClient(GenericWSClient):
         new_version_id = None
         # accept incoming requests for payload data (optional)
         async for msg_ in self.websocket:
-            print(f"$$$$$$$$$ client:{self.id} msg: {msg_}")
+            logger.info(f"client:{self.id} msg: {msg_}")
             msg = json.loads(msg_)
             # logger.debug(f"msg: {msg}")
             if msg['type'] == "request_field_payload":
@@ -145,12 +147,11 @@ class SyncClient(GenericWSClient):
             else:
                 logger.info(f"response from server:{msg}")
 
-
         # else:
         #     print("ENDE:")
         # EEEEK TODO this is to prevent sqlite blocking due to other sessions
         session.close_all()
-        
+
         if new_version_id is None:
             return
             # breakpoint()
@@ -170,23 +171,70 @@ class SyncClient(GenericWSClient):
 
         session.commit()
 
-    async def run_pull(self, session: Optional[sqlalchemy.orm.session.Session] = None):
-        new_version_id: Optional[int]
-        message = self.create_push_message()
+    async def run_pull(self, session: Optional[sqlalchemy.orm.session.Session] = None,
+                       extra_data: Dict[str, Any] = None, monitor: Optional[Callable[[Dict[str, Any]], None]] = None):
+        include_extensions = False
+        if extra_data is None:
+            extra_data = {}
+
+        logger.info(f"run_pull begin")
+        # new_version_id: Optional[int]
+        # message = self.create_push_message()
         if not session:
             session = self.Session()
 
+        if extra_data is not None:
+            assert isinstance(extra_data, dict), "extra data must be a dictionary"
+        request_message = PullRequestMessage()
+        for op in compress():
+            request_message.add_operation(op)
+        data = request_message.to_json()
+        data.update({'extra_data': extra_data or {}})
+        msg = json.dumps(data,  cls=SyncdbJSONEncoder)
+        await self.websocket.send(msg)
+
+        response_str = await self.websocket.recv()
+        response = json.loads(response_str)
+        message = None
+        try:
+            message = PullMessage(response)
+        except KeyError:
+            if monitor:
+                monitor({
+                    'status': "error",
+                    'reason': "invalid message format"})
+            raise BadResponseError(
+                "response object isn't a valid PullMessage", response)
+
+        logger.info(f"pull message contains {len(message.operations)} operations")
+
+        if monitor:
+            monitor({
+                'status': "merging",
+                'operations': len(message.operations)})
+
+
+        merge(message, include_extensions=include_extensions)  #TODO: request_payload etc.
+        if monitor:
+            monitor({'status': "done"})
+        # return the response for the programmer to do what she wants
+        # afterwards
+        return response
+
     async def synchronize(self):
         tries = 3
-        for _ in range(tries):
+        for _round in range(tries):
             try:
-                return await self.connect_async(method=self.run_push, path="push")
+                logger.info(f"-- round {_round}: try push")
+                await self.connect_async(method=self.run_push, path="push")
             except PullSuggested as ex:
                 try:
-                    breakpoint()
-                    raise
-                    return await self.connect_async(method=self.run_pull, path="pull")
+                    # breakpoint()
+                    # raise
+                    logger.info(f"-- round {_round}: pull suggested: try pull")
+                    await self.connect_async(method=self.run_pull, path="pull")
+                    logger.info(f"-- round {_round}: pull successful")
                 except UniqueConstraintError as e:
+                    raise
                     for model, pk, columns in e.entries:
-                        pass # handle exception
-
+                        pass  # handle exception

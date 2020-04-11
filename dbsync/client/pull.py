@@ -6,6 +6,8 @@ import collections
 
 from sqlalchemy.orm import make_transient
 
+from dbsync.core import get_latest_version_id
+from dbsync.createlogger import create_logger
 from dbsync.lang import *
 from dbsync.utils import class_mapper, get_pk, query_model
 from dbsync import core
@@ -24,6 +26,7 @@ from dbsync.client.conflicts import (
 from dbsync.client.net import post_request
 
 
+logger = create_logger("client/pull")
 # Utilities specific to the merge
 
 def max_local(model, session):
@@ -104,6 +107,8 @@ def merge(pull_message, session=None):
 
     *pull_message* is an instance of dbsync.messages.pull.PullMessage.
     """
+
+    logger.info("begin merge")
     if not isinstance(pull_message, PullMessage):
         raise TypeError("need an instance of dbsync.messages.pull.PullMessage "
                         "to perform the local merge operation")
@@ -113,7 +118,7 @@ def merge(pull_message, session=None):
     pull_ops = list(filter(attr('content_type_id').in_(valid_cts),
                       pull_message.operations))
     pull_ops = compressed_operations(pull_ops)
-
+    logger.info(f"pull_ops:{len(pull_ops)} items")
     # I) first phase: resolve unique constraint conflicts if
     # possible. Abort early if a human error is detected
     unique_conflicts, unique_errors = find_unique_conflicts(
@@ -123,6 +128,7 @@ def merge(pull_message, session=None):
         raise UniqueConstraintError(unique_errors)
 
     conflicting_objects = set()
+    logger.info(f"{len(unique_conflicts)} conflicts found")
     for uc in unique_conflicts:
         obj = uc['object']
         conflicting_objects.add(obj)
@@ -140,6 +146,7 @@ def merge(pull_message, session=None):
             delete(synchronize_session=False) # remove from the database
     session.add_all(conflicting_objects) # reinsert them
     session.flush()
+
 
     # II) second phase: detect conflicts between pulled operations and
     # unversioned ones
@@ -234,6 +241,10 @@ def merge(pull_message, session=None):
     # IV) fourth phase: insert versions from the pull_message
     for pull_version in pull_message.versions:
         session.add(pull_version)
+
+    session.flush()
+    latest_version=get_latest_version_id(session=session)
+    logger.info(f"latest version after all {latest_version}/{pull_version}")
 
 
 class BadResponseError(Exception):

@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import threading
+import traceback
 import uuid
 from asyncio import Future, Task, Event
 from dataclasses import dataclass, field, InitVar
@@ -127,6 +128,8 @@ class GenericWSServer(object):
             try:
                 await handler(connection)
             except Exception as e:
+                logger.warn(f"exception occured in handler{handler}")
+                traceback.print_exc()
                 exdict = exception_as_dict(e)
                 logger.error(exdict)
                 reason=json.dumps(exdict)[:123] # limitation is because of size limit in Wbsockets protocol

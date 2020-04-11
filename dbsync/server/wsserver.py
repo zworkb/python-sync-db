@@ -2,21 +2,23 @@ import asyncio
 import datetime
 import json
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import sqlalchemy
 
 from dbsync import server, core
 from dbsync.client import PushRejected, PullSuggested
 from dbsync.core import with_transaction, with_transaction_async
+from dbsync.messages.codecs import SyncdbJSONEncoder
+from dbsync.messages.pull import PullRequestMessage, PullMessage
 from dbsync.messages.push import PushMessage
 from dbsync.models import OperationError, Version, Operation, attr
 from dbsync.server import before_push, after_push
 from dbsync.server.conflicts import find_unique_conflicts
+from dbsync.server.handlers import PullRejected
 from dbsync.socketserver import GenericWSServer, Connection
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
-
 
 from dbsync.createlogger import create_logger
 from sqlalchemy.orm import sessionmaker, make_transient
@@ -54,9 +56,10 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
 
         # breakpoint()
         latest_version_id = core.get_latest_version_id(session=session)
+        logger.info(f"** version on server:{latest_version_id}, version in pushmsg:{pushmsg.latest_version_id}")
         if latest_version_id != pushmsg.latest_version_id:
-            exc = f"version identifier isn't the latest one; "\
-                f"incoming: {pushmsg.latest_version_id}, on server:{latest_version_id}"
+            exc = f"version identifier isn't the latest one; " \
+                  f"incoming: {pushmsg.latest_version_id}, on server:{latest_version_id}"
 
             if latest_version_id is None:
                 logger.warn(exc)
@@ -89,9 +92,9 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
             pks = [getattr(obj, pk_name)
                    for obj in conflicting_objects
                    if type(obj) is model]
-            session.query(model).filter(getattr(model, pk_name).in_(pks)).\
-                delete(synchronize_session=False) # remove from the database
-        session.add_all(conflicting_objects) # reinsert
+            session.query(model).filter(getattr(model, pk_name).in_(pks)). \
+                delete(synchronize_session=False)  # remove from the database
+        session.add_all(conflicting_objects)  # reinsert
         session.flush()
 
         # II) perform the operations
@@ -144,10 +147,30 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
 
 
 @SyncServer.handler("/pull")
-@with_transaction_async()
-async def pull(connection: Connection, session: sqlalchemy.orm.Session):
-    async for msg in connection.socket:
-        msg_json = json.loads(msg)
+# @with_transaction_async()
+async def handle_pull(connection: Connection):
+    """
+    Handle the pull request and return a dictionary object to be sent
+    back to the node.
+
+    *data* must be a dictionary-like object, usually one obtained from
+    decoding a JSON dictionary in the POST body.
+    """
+    swell = False,
+    include_extensions = True
+    data_str = await connection.socket.recv()
+    data = json.loads(data_str)
+    try:
+        request_message = PullRequestMessage(data)
+    except KeyError:
+        raise PullRejected("request object isn't a valid PullRequestMessage", data)
+
+    message = PullMessage()
+    message.fill_for(
+        request_message,
+        swell=swell,
+        include_extensions=include_extensions)
+    await connection.socket.send(json.dumps(message.to_json(), indent=4,  cls=SyncdbJSONEncoder))
 
 
 @SyncServer.handler("/status")
@@ -170,6 +193,7 @@ async def status(connection: Connection):
         json.dumps(res)
     )
 
+
 @SyncServer.handler("/register", SyncServerConnection)
 async def register(conn: SyncServerConnection):
     print(f"conn:{conn}")
@@ -177,7 +201,6 @@ async def register(conn: SyncServerConnection):
     print(f"register: {params}")
     res = server.handle_register()
     await conn.socket.send(json.dumps(res))
-
 
     # return (json.dumps(server.handle_register()),
     #         200,
