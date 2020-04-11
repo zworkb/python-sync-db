@@ -104,8 +104,8 @@ def addstuff(Session: sessionmaker, par: Union[str, int] = ""):
 
 def changestuff(Session: sessionmaker, par=""):
     session = Session()
-    a1, a2, a3 = session.query(A).all()
-    b1, b2, b3 = session.query(B).all()
+    a1, a2, a3 = session.query(A).all() [:3]
+    b1, b2, b3 = session.query(B).all() [:3]
     a1.name = "first a modified"
     b2.a = a2
     # lets change b1
