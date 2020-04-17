@@ -22,7 +22,7 @@ import dbsync
 from dbsync import client, models, core
 
 server_db = "./test_server.db"
-
+server_uri_postgres = 'postgresql:///synctest'
 
 def client_db(pid=None):
     if pid is None:

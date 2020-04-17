@@ -4,6 +4,8 @@ from datetime import time
 from time import sleep as tsleep
 from multiprocessing.pool import ApplyResult
 
+from sqlalchemy.engine import Engine
+
 import dbsync
 import pytest
 import multiprocessing as mp
@@ -14,7 +16,7 @@ from dbsync.server.wsserver import SyncServer
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .models_websockets import Base, PORT, SERVER_URL, server_db, A, B
+from .models_websockets import Base, PORT, SERVER_URL, server_db, A, B, server_uri_postgres
 
 
 def register_server_tracking():
@@ -23,9 +25,19 @@ def register_server_tracking():
 
 
 def start_ws_server(**kw):
+    """
+    postgres must be installed with permissions to create a db
+    """
     from dbsync import core
     core.mode = "server"
-    engine_server = create_engine(f"sqlite:///{server_db}")
+    # engine_server = create_engine(f"sqlite:///{server_db}")
+    try:
+        os.system("dropdb synctest")
+        os.system("createdb synctest")
+        engine_server: Engine = create_engine(server_uri_postgres)
+    except Exception as ex:
+        print("**** PLEASE INSTALL POSTGRES ***")
+        raise
     Base.metadata.create_all(engine_server)
     dbsync.set_engine(engine_server)
     dbsync.create_all()
@@ -65,7 +77,8 @@ def server_session() -> sqlalchemy.orm.session.Session:
     """
     provides a session object to the server database for sync checking
     """
-    engine_server = create_engine(f"sqlite:///{server_db}")
+    # engine_server = create_engine(f"sqlite:///{server_db}")
+    engine_server = server_uri_postgres
     Session = sessionmaker(engine_server)
     res = Session()
 
