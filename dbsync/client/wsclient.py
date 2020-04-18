@@ -225,7 +225,7 @@ class SyncClient(GenericWSClient):
         return response
 
     async def synchronize(self):
-        tries = 3
+        tries = 5
         for _round in range(tries):
             try:
                 logger.info(f"-- round {_round}: try push")

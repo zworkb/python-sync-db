@@ -281,13 +281,14 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, sync_
     addstuff(sync_client_registered.Session)
     try:
         with multiprocessing.Pool() as pool:
-            pool.map(push_and_change_in_process, [2, 3, 4, 5])
+            pool.map(push_and_change_in_process, [2, 3, 4, 5, 6, 7])
     except PullSuggested as ex:
         raise
 
     # a seperate run for the third client should now fetch all other's a's
     with multiprocessing.Pool() as pool:
-        res = pool.apply(push_and_change_in_process, [3])
+        for id in [3, 5]:
+            res = pool.apply(push_and_change_in_process, [id])
 
 @pytest.mark.asyncio
 async def test_push_and_change_with_multiple_clients_sequential(sync_server, sync_client_registered, server_session, client_session):
