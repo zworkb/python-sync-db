@@ -8,6 +8,8 @@ from typing import Optional, Dict, Any, Callable
 import sqlalchemy
 from sqlalchemy import and_
 import websockets
+from sqlalchemy.exc import OperationalError
+
 from dbsync import core, wscommon
 from dbsync.client import PushRejected, PullSuggested, UniqueConstraintError
 from dbsync.client.compression import compress
@@ -24,11 +26,12 @@ from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
+from dbsync.wscommon import SerializationError
+
 wscommon.register_exception(PushRejected)
 wscommon.register_exception(PullSuggested)
 
 logger = create_logger("wsclient")
-
 
 @dataclass
 class SyncClient(GenericWSClient):
@@ -227,9 +230,9 @@ class SyncClient(GenericWSClient):
             try:
                 logger.info(f"-- round {_round}: try push")
                 await self.connect_async(method=self.run_push, path="push")
-            except PullSuggested as ex:
+
+            except (SerializationError, PullSuggested) as ex:
                 try:
-                    # breakpoint()
                     # raise
                     logger.info(f"-- round {_round}: pull suggested: try pull")
                     await self.connect_async(method=self.run_pull, path="pull")
@@ -238,3 +241,6 @@ class SyncClient(GenericWSClient):
                     raise
                     for model, pk, columns in e.entries:
                         pass  # handle exception
+            except Exception as ex:
+                breakpoint()
+                raise

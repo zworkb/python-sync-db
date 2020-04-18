@@ -34,7 +34,9 @@ def start_ws_server(**kw):
     try:
         os.system("dropdb synctest")
         os.system("createdb synctest")
-        engine_server: Engine = create_engine(server_uri_postgres)
+        engine_server: Engine = create_engine(server_uri_postgres,
+                                              isolation_level='SERIALIZABLE'
+                                              )
     except Exception as ex:
         print("**** PLEASE INSTALL POSTGRES ***")
         raise

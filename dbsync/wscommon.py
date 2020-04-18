@@ -3,6 +3,10 @@ import traceback
 from json import JSONDecodeError
 from typing import Union, Dict, Any, Type, Optional
 
+from sqlalchemy.exc import OperationalError
+
+class SerializationError(Exception):
+    pass
 
 def exception_as_dict_recursive(ex):
     """
@@ -59,17 +63,25 @@ def exception_from_dict(ex: Union[str, Dict[str, Any]]) -> Exception:
     Moegliche Loesung:
     exception per key am server merken und mit einem seperaten request abholen
     """
-
+    klassname = None
     try:
         exdict = json.loads(ex) if isinstance(ex, str) else ex
-        klassname = exdict['type'].replace("(", "").replace(")", "")
+        if exdict['type'] == "exception":
+            _klassname = exdict["extype"]
+        else:
+            _klassname = exdict["type"]
+
+        klassname = _klassname.replace("(", "").replace(")", "")
         args = exdict["args"]
     except JSONDecodeError as e:
         args = [ex]
 
     try:
-        klass = globals()[klassname] # eval(klassname)
+        klass = globals()[klassname]
         res = klass(*exdict["args"])
         return res
     except Exception as e:
-        return Exception(klassname, *args)
+        if "psycopg2.errors.SerializationFailure" in args[0]:
+            return SerializationError(["SerializationFailure"]+args)
+        else:
+            return Exception(klassname, *args) if klassname else Exception("general Exception", *args)

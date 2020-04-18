@@ -10,6 +10,7 @@ import pytest
 from websockets import WebSocketCommonProtocol
 
 from dbsync.client.wsclient import SyncClient
+from dbsync.createlogger import create_logger
 from dbsync.models import extend, Operation, SQLClass
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
@@ -23,6 +24,8 @@ from dbsync import client, models, core
 
 server_db = "./test_server.db"
 server_uri_postgres = 'postgresql:///synctest'
+
+logger = create_logger("models_websockets")
 
 def client_db(pid=None):
     if pid is None:
@@ -83,7 +86,7 @@ class B(Base):
 
 
 def addstuff(Session: sessionmaker, par: Union[str, int] = ""):
-    print("ADDSTUFF", par)
+    logger.debug("ADDSTUFF", par)
     a1 = A(name=f"first a {par}", pid=par)
     a2 = A(name=f"second a {par}", pid=par)
     a3 = A(name=f"third a {par}", pid=par)
@@ -104,9 +107,9 @@ def addstuff(Session: sessionmaker, par: Union[str, int] = ""):
 
 def changestuff(Session: sessionmaker, par=""):
     session = Session()
-    a1, a2, a3 = session.query(A).all() [:3]
-    b1, b2, b3 = session.query(B).all() [:3]
-    a1.name = "first a modified"
+    a1, a2, a3 = session.query(A).all()[:3]
+    b1, b2, b3 = session.query(B).all()[:3]
+    a1.name = f"first a {par} modified"
     b2.a = a2
     # lets change b1
     b1.name = f"first b {par} updated"

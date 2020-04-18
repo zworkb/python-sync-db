@@ -281,7 +281,7 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, sync_
     addstuff(sync_client_registered.Session)
     try:
         with multiprocessing.Pool() as pool:
-            pool.map(push_and_change_in_process, [2,3,4,5])
+            pool.map(push_and_change_in_process, [2, 3, 4, 5])
     except PullSuggested as ex:
         raise
 
