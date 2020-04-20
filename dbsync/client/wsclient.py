@@ -224,17 +224,17 @@ class SyncClient(GenericWSClient):
         # afterwards
         return response
 
-    async def synchronize(self):
+    async def synchronize(self, id=None):
         tries = 5
         for _round in range(tries):
             try:
-                logger.info(f"-- round {_round}: try push")
+                logger.info(f"-- round {_round} for {id}: try push")
                 await self.connect_async(method=self.run_push, path="push")
 
             except (SerializationError, PullSuggested) as ex:
                 try:
                     # raise
-                    logger.info(f"-- round {_round}: pull suggested: try pull")
+                    logger.info(f"-- round {_round} for {id}: pull suggested: try pull")
                     await self.connect_async(method=self.run_pull, path="pull")
                     logger.info(f"-- round {_round}: pull successful")
                 except UniqueConstraintError as e:

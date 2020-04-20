@@ -17,14 +17,15 @@ def register_client_tracking():
     client.track(B)
 
 
-def create_sync_client(pid: int = 0):
+def create_sync_client(pid: int = 0, reset_db=True):
     from dbsync import core
     core.mode = "client"
     dbname = client_db(pid)
-    try:
-        os.remove(dbname)
-    except FileNotFoundError:
-        print(f"ignore non existing file {dbname}")
+    if reset_db:
+        try:
+            os.remove(dbname)
+        except FileNotFoundError:
+            print(f"ignore non existing file {dbname}")
 
     engine_client = create_engine(f"sqlite:///{dbname}")
     Base.metadata.create_all(engine_client)
@@ -47,8 +48,8 @@ def sync_client():
     return create_sync_client(0)
 
 
-def create_sync_client_registered(pid: int = 0):
-    sync_client = create_sync_client(pid)
+def create_sync_client_registered(pid: int = 0, reset_db=True):
+    sync_client = create_sync_client(pid, reset_db=reset_db)
     asyncio.run(sync_client.register())
     return sync_client
 

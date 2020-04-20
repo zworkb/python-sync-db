@@ -213,6 +213,22 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     assert len(versions) == 2
 
 
+def push_only(nr: int):
+    print(">>>>>>>>>>>>>>>>> push only:", nr)
+    sync_client: SyncClient = create_sync_client_registered(nr, reset_db=False)
+    sess = sync_client.Session()
+    a1, a2, a3 = sess.query(A).filter(A.pid == str(nr))
+    a2.name = f"!!!second a {nr} fixed"
+    sess.commit()
+    # addstuff(sync_client.Session, nr)
+    # a=A(name=f"last a {nr}", pid=nr)
+    # sess.add(a)
+    # sess.commit()
+    # breakpoint()
+    asyncio.run(sync_client.synchronize(id=nr))
+    print("<<<<<<<<<<<<<<<<<push only:", nr)
+
+
 def push_in_process(nr: int):
     """
     simply invokes synchronize() but
@@ -288,7 +304,7 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, sync_
     # a seperate run for the third client should now fetch all other's a's
     with multiprocessing.Pool() as pool:
         for id in [3, 5]:
-            res = pool.apply(push_and_change_in_process, [id])
+            res = pool.apply(push_only, [id])
 
 @pytest.mark.asyncio
 async def test_push_and_change_with_multiple_clients_sequential(sync_server, sync_client_registered, server_session, client_session):
