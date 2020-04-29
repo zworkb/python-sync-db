@@ -54,7 +54,6 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
         # await connection.socket.send(f"answer is:{msg}")
         logger.info(f"message key={pushmsg.key}")
 
-        # breakpoint()
         latest_version_id = core.get_latest_version_id(session=session)
         logger.info(f"** version on server:{latest_version_id}, version in pushmsg:{pushmsg.latest_version_id}")
         if latest_version_id != pushmsg.latest_version_id:
@@ -76,6 +75,7 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
 
         for listener in before_push:
             listener(session, pushmsg)
+
 
         # I) detect unique constraint conflicts and resolve them if possible
         unique_conflicts = find_unique_conflicts(pushmsg, session)
