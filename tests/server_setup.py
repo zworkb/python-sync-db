@@ -80,10 +80,12 @@ def server_session() -> sqlalchemy.orm.session.Session:
     provides a session object to the server database for sync checking
     """
     # engine_server = create_engine(f"sqlite:///{server_db}")
-    engine_server = server_uri_postgres
-    Session = sessionmaker(engine_server)
-    res = Session()
 
+    os.system("dropdb synctest;createdb synctest")
+    engine_server = server_uri_postgres
+    engine = create_engine(engine_server)
+    Session = sessionmaker(bind=engine)
+    res = Session()
     return res
 
 

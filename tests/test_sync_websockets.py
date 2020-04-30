@@ -179,6 +179,7 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     print(f"NODES:{nodes}")
     assert len(nodes) == 1
 
+    # breakpoint()
     server_nodes = server_session.query(Node).all()
 
     # after registration there should be one node in the server database
@@ -202,12 +203,12 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     await sync_client_registered.synchronize()
 
-    b2 = server_session.query(B).filter(B.name == "second b updated").one()
+    b2 = server_session.query(B).filter(B.name == "second b  updated").one()
     # check if data have been transferred
     fpath = datapath(b2.data, "server")
     with open(fpath) as fh:
         data = fh.read()
-        assert data == "b2 changed"
+        assert data == "b2  changed"
 
     versions = client_session.query(Version).all()
     assert len(versions) == 2
