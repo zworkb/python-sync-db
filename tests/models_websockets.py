@@ -27,6 +27,7 @@ server_uri_postgres = 'postgresql:///synctest'
 
 logger = create_logger("models_websockets")
 
+
 def client_db(pid=None):
     if pid is None:
         pid = os.getpid()

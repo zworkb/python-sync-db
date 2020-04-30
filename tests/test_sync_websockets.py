@@ -229,7 +229,7 @@ def push_only(nr: int):
     print("<<<<<<<<<<<<<<<<<push only:", nr)
 
 
-def push_in_process(nr: int):
+def synchronize_in_process(nr: int):
     """
     simply invokes synchronize() but
     have to start different clients in separate processes
@@ -250,7 +250,7 @@ async def test_push_with_multiple_clients_parallel(sync_server, sync_client_regi
     addstuff(sync_client_registered.Session)
     ids = [1, 2, 3]
     with multiprocessing.Pool() as pool:
-        res = pool.map(push_in_process, ids)
+        res = pool.map(synchronize_in_process, ids)
         print(f"res={res}")
 
 
@@ -260,7 +260,7 @@ async def test_push_with_multiple_clients_sequential(sync_server, sync_client_re
     ids = [1, 2, 3]
     with multiprocessing.Pool() as pool:
         for id in ids:
-            res = pool.apply(push_in_process, [id])
+            res = pool.apply(synchronize_in_process, [id])
             print(f"res={res}")
 
 

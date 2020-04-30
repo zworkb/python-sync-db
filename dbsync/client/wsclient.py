@@ -238,9 +238,13 @@ class SyncClient(GenericWSClient):
                     await self.connect_async(method=self.run_pull, path="pull")
                     logger.info(f"-- round {_round}: pull successful")
                 except UniqueConstraintError as e:
+                    # breakpoint()
                     raise
                     for model, pk, columns in e.entries:
-                        pass  # handle exception
+                        pass  # TODO: handle exception
+                except Exception as ex:
+                    # breakpoint()
+                    raise
             except Exception as ex:
-                breakpoint()
+                # breakpoint()
                 raise
