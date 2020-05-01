@@ -55,33 +55,6 @@ async def test_fuckup(sync_server):
         res = await client.connect_async(action=action)
 
 
-# @SyncServer.handler("/longrun")
-# async def longrun(conn: Connection):
-#     print("LONGRUN")
-#     n = int(await conn.socket.recv())
-#
-#     for i in range(n):
-#         print(f"sleeping for a second")
-#         await asyncio.sleep(1)
-#         # await conn.socket.ping()
-#         # await conn.socket.send(str(i))
-#         print(f"running for {i} seconds")
-#
-#     await conn.socket.send(f"waited for {n} ticks")
-#
-# @pytest.mark.asyncio
-# async def test_longrun(sync_server):
-#     async def action(client: GenericWSClient):
-#         await client.websocket.send("60")
-#
-#         # wenn ich nicht eine antwort erwarte, bricht die verbindung vorzeitig ab
-#         async for msg in client.websocket:
-#             print(f"msg is:{msg}")
-#
-#     client = GenericWSClient(port=sync_server, path="longrun")
-#     await client.connect_async(action=action)
-
-
 @pytest.mark.asyncio
 async def test_server_only(sync_server):
     """
@@ -291,11 +264,11 @@ def push_and_change_in_process(nr: int):
 
 
 @pytest.mark.asyncio
-async def test_push_and_change_with_multiple_clients_parallel(sync_server, sync_client_registered, server_session, client_session):
+async def test_push_and_change_with_multiple_clients_parallel(sync_server, server_session, client_session):
     """
     calls push_and_change_in_process in parallel
     """
-    addstuff(sync_client_registered.Session)
+
     try:
         with multiprocessing.Pool() as pool:
             pool.map(push_and_change_in_process, [2, 3, 4, 5, 6, 7])
@@ -308,12 +281,12 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, sync_
             res = pool.apply(push_only, [id])
 
 @pytest.mark.asyncio
-async def test_push_and_change_with_multiple_clients_sequential(sync_server, sync_client_registered, server_session, client_session):
+async def test_push_and_change_with_multiple_clients_sequential(sync_server, server_session, client_session):
     """
-    calls push_and_change_in_process in sequential order
+    calls push_and_change_in_process in sequential order, deterministic
     """
     ids = [1, 2, 3]
-    addstuff(sync_client_registered.Session)
+
     try:
         with multiprocessing.Pool() as pool:
             for id in ids:

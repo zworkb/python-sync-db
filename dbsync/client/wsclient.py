@@ -225,6 +225,10 @@ class SyncClient(GenericWSClient):
         return response
 
     async def synchronize(self, id=None):
+        """
+
+        XXX: implement a more sophisticated retry strategy (random delay, longer delay schedule)
+        """
         tries = 5
         for _round in range(tries):
             try:

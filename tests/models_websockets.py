@@ -69,7 +69,7 @@ class A(Base):
         return u"<A id:{0} name:{1}>".format(self.id, self.name)
 
 
-@client.track
+@client.track("push")
 class B(Base):
     __tablename__ = "test_b"
 
