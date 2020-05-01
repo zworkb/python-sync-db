@@ -13,8 +13,8 @@ from .models_websockets import Base, PORT, SERVER_URL, server_db, client_db, A, 
 
 
 def register_client_tracking():
-    client.track(A)
-    client.track(B)
+    client.start_tracking(A)
+    client.start_tracking(B)
 
 
 def create_sync_client(pid: int = 0, reset_db=True):

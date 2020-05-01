@@ -6,7 +6,7 @@ import logging
 import inspect
 import warnings
 from collections import deque
-from typing import Optional, Callable, Deque
+from typing import Optional, Callable, Deque, Union, List
 
 from dbsync.core import SQLClass
 from sqlalchemy import event
@@ -110,7 +110,8 @@ def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Opti
     return op
 
 
-def _start_tracking(model, directions):
+def start_tracking(model, directions=("push", "pull")):
+
     if 'pull' in directions:
         core.pulled_models.add(model)
     if 'push' in directions:
@@ -126,7 +127,7 @@ def _start_tracking(model, directions):
     return model
 
 
-def track(*directions):
+def track(*directions: Union[List[str], SQLClass]):
     """
     Adds an ORM class to the list of synchronized classes.
 
@@ -140,12 +141,12 @@ def track(*directions):
     """
     valid = ('push', 'pull')
     if not directions:
-        return lambda model: _start_tracking(model, valid)
+        return lambda model: start_tracking(model, valid)
     if len(directions) == 1 and inspect.isclass(directions[0]):
-        return _start_tracking(directions[0], valid)
+        return start_tracking(directions[0], valid)
     assert all(d in valid for d in directions), \
         "track only accepts the arguments: {0}".format(', '.join(valid))
-    return lambda model: _start_tracking(model, directions)
+    return lambda model: start_tracking(model, directions)
 
 
 event.listen(GlobalSession, 'after_commit', flush_operations)

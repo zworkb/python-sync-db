@@ -10,11 +10,12 @@ import logging
 import inspect
 import datetime
 import warnings
+from typing import List, Union
 
 from sqlalchemy import event
 
 from dbsync import core
-from dbsync.models import Operation, Version
+from dbsync.models import Operation, Version, SQLClass
 from dbsync.logs import get_logger
 
 
@@ -59,7 +60,7 @@ def make_listener(command):
     return listener
 
 
-def _start_tracking(model, directions):
+def start_tracking(model, directions = ("push", "pull")):
     if 'pull' in directions:
         core.pulled_models.add(model)
     if 'push' in directions:
@@ -73,7 +74,7 @@ def _start_tracking(model, directions):
     return model
 
 
-def track(*directions):
+def track(*directions: Union[List[str], SQLClass]):
     """
     Adds an ORM class to the list of synchronized classes.
 
@@ -87,9 +88,9 @@ def track(*directions):
     """
     valid = ('push', 'pull')
     if not directions:
-        return lambda model: _start_tracking(model, valid)
+        return lambda model: start_tracking(model, valid)
     if len(directions) == 1 and inspect.isclass(directions[0]):
-        return _start_tracking(directions[0], valid)
+        return start_tracking(directions[0], valid)
     assert all(d in valid for d in directions), \
         "track only accepts the arguments: {0}".format(', '.join(valid))
-    return lambda model: _start_tracking(model, directions)
+    return lambda model: start_tracking(model, directions)

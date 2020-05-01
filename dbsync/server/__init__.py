@@ -5,7 +5,7 @@ The server listens to 'push' and 'pull' requests and provides a
 customizable registry service.
 """
 
-from dbsync.server.tracking import track
+from dbsync.server.tracking import track, start_tracking
 from dbsync.models import extend
 from dbsync.server.handlers import (
     handle_register,
