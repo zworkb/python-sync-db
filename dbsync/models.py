@@ -8,6 +8,7 @@ from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type
 
 from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
+from sqlalchemy.exc import NoSuchColumnError
 
 try:
     from typing import Protocol
@@ -499,8 +500,14 @@ class Operation(Base):
             session.merge(pull_obj)
 
         elif operation.command == 'd':
-            obj = query_model(session, model, only_pk=True).\
-                filter(getattr(model, get_pk(model)) == operation.row_id).first()
+            try:
+                obj = query_model(session, model, only_pk=True).\
+                    filter(getattr(model, get_pk(model)) == operation.row_id).first()
+            except NoSuchColumnError as ex:
+                # for joins only_pk doesnt seem to work
+                obj = query_model(session, model, only_pk=False). \
+                    filter(getattr(model, get_pk(model)) == operation.row_id).first()
+
             if obj is None:
                 # The object is already deleted in the server
                 # The final state in node and server are the same. But
