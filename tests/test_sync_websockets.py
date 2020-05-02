@@ -295,6 +295,8 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
     except PullSuggested as ex:
         raise
 
+    # XXX: check for downloaded a's and b's
+
 def test_subquery(sync_client, client_session):
     addstuff(sync_client.Session)
 
