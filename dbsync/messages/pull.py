@@ -64,17 +64,17 @@ class PullMessage(BaseMessage):
     def _build_from_raw(self, data):
         self.created = decode(types.DateTime())(data['created'])
         self.operations = list(map(partial(object_from_dict, Operation),
-                              list(map(decode_dict(Operation), data['operations']))))
+                                   list(map(decode_dict(Operation), data['operations']))))
         self.versions = list(map(partial(object_from_dict, Version),
-                            list(map(decode_dict(Version), data['versions']))))
+                                 list(map(decode_dict(Version), data['versions']))))
 
     def query(self, model):
         "Returns a query object for this message."
         return MessageQuery(
             model,
             dict(self.payload, **{
-                    'models.Operation': self.operations,
-                    'models.Version': self.versions}))
+                'models.Operation': self.operations,
+                'models.Version': self.versions}))
 
     def to_json(self):
         """
@@ -88,9 +88,9 @@ class PullMessage(BaseMessage):
         encoded = super(PullMessage, self).to_json()
         encoded['created'] = encode(types.DateTime())(self.created)
         encoded['operations'] = list(map(encode_dict(Operation),
-                                    list(map(properties_dict, self.operations))))
+                                         list(map(properties_dict, self.operations))))
         encoded['versions'] = list(map(encode_dict(Version),
-                                  list(map(properties_dict, self.versions))))
+                                       list(map(properties_dict, self.versions))))
         return encoded
 
     @session_closing
@@ -116,11 +116,11 @@ class PullMessage(BaseMessage):
         """
         model = op.tracked_model
         if model is None:
-            raise ValueError("operation linked to model %s "\
-                                 "which isn't being tracked" % model)
+            raise ValueError("operation linked to model %s " \
+                             "which isn't being tracked" % model)
         if model not in pulled_models:
             return self
-        obj = query_model(session, model).\
+        obj = query_model(session, model). \
             filter_by(**{get_pk(model): op.row_id}).first() \
             if op.command != 'd' else None
         self.operations.append(op)
@@ -150,7 +150,7 @@ class PullMessage(BaseMessage):
         """
         for op in v.operations:
             if op.content_type_id not in synched_models.ids:
-                raise ValueError("version includes operation linked "\
+                raise ValueError("version includes operation linked " \
                                  "to model not currently being tracked", op)
         self.versions.append(v)
         for op in v.operations:
@@ -174,7 +174,7 @@ class PullMessage(BaseMessage):
         assert isinstance(request, PullRequestMessage), "invalid request"
         versions = session.query(Version)
         if request.latest_version_id is not None:
-            versions = versions.\
+            versions = versions. \
                 filter(Version.version_id > request.latest_version_id)
         required_objects = {}
         required_parents = {}
@@ -183,8 +183,8 @@ class PullMessage(BaseMessage):
             for op in v.operations:
                 model = op.tracked_model
                 if model is None:
-                    raise ValueError("operation linked to model %s "\
-                                         "which isn't being tracked" % model)
+                    raise ValueError("operation linked to model %s " \
+                                     "which isn't being tracked" % model)
                 if model not in pulled_models: continue
                 self.operations.append(op)
                 if op.command != 'd':
@@ -249,7 +249,7 @@ class PullRequestMessage(BaseMessage):
 
     def _build_from_raw(self, data):
         self.operations = list(map(partial(object_from_dict, Operation),
-                              list(map(decode_dict(Operation), data['operations']))))
+                                   list(map(decode_dict(Operation), data['operations']))))
         self.latest_version_id = decode(types.Integer())(
             data['latest_version_id'])
 
@@ -262,8 +262,12 @@ class PullRequestMessage(BaseMessage):
     def to_json(self):
         "Returns a JSON-friendly python dictionary."
         encoded = super(PullRequestMessage, self).to_json()
-        encoded['operations'] = list(map(encode_dict(Operation),
-                                    list(map(properties_dict, self.operations))))
+        encoded['operations'] = list(
+            map(
+                encode_dict(Operation),
+                list(map(properties_dict, self.operations))
+            )
+        )
         encoded['latest_version_id'] = encode(types.Integer())(
             self.latest_version_id)
         return encoded
@@ -273,12 +277,12 @@ class PullRequestMessage(BaseMessage):
         Adds an operation to the message, including the required
         object if possible.
         """
-        assert op.version_id is None, "the operation {0} is already versioned".\
+        assert op.version_id is None, "the operation {0} is already versioned". \
             format(op)
         model = op.tracked_model
         if model is None:
-            raise ValueError("operation linked to model %s "\
-                                 "which isn't being tracked" % model)
+            raise ValueError("operation linked to model %s " \
+                             "which isn't being tracked" % model)
         if model not in pulled_models: return self
         self.operations.append(op)
         return self
@@ -289,12 +293,12 @@ class PullRequestMessage(BaseMessage):
         Adds all unversioned operations to this message and
         required objects.
         """
-        operations = session.query(Operation).\
+        operations = session.query(Operation). \
             filter(Operation.version_id == None).all()
         if any(op.content_type_id not in synched_models.ids
                for op in operations):
-            raise ValueError("version includes operation linked "\
-                                 "to model not currently being tracked")
+            raise ValueError("version includes operation linked " \
+                             "to model not currently being tracked")
         for op in operations:
             self.add_operation(op)
         return self
