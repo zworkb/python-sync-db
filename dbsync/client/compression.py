@@ -136,6 +136,8 @@ def compress(session=None):
                     (operation, model.__name__))
             session.delete(operation)
             continue
+
+    session.commit()
     return session.query(Operation).\
         filter(Operation.version_id == None).\
         order_by(Operation.order.asc()).all()

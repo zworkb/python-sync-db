@@ -74,6 +74,7 @@ class SyncClient(GenericWSClient):
             logger.debug("register finished")
 
             assert len(session.query(Node).all()) > 0
+            session.close()
             return resp
 
     def create_push_message(self, session: Optional[sqlalchemy.orm.session.Session] = None,
@@ -114,9 +115,9 @@ class SyncClient(GenericWSClient):
     async def run_push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
         # breakpoint()
         new_version_id: Optional[int]
-        message = self.create_push_message()
         if not session:
             session = self.Session()
+        message = self.create_push_message(session=session)
 
         logger.info(f"number of operations: {len(message.operations)}")
         if not message.operations:
