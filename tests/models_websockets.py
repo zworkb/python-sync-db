@@ -11,7 +11,7 @@ from websockets import WebSocketCommonProtocol
 
 from dbsync.client.wsclient import SyncClient
 from dbsync.createlogger import create_logger
-from dbsync.models import extend, Operation, SQLClass
+from dbsync.models import Operation, SQLClass, add_field_extension
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker, Session
@@ -167,8 +167,18 @@ async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: W
         with open(datapath(o.data), "w") as fh:
             fh.write(payload)
 
+def before_name(*a):
+    # breakpoint()
+    print("before_name:", a)
 
-extend(
+# extend(
+#     B,
+#     "name",
+#     String,
+#     before_operation_fn=before_name
+# )
+
+add_field_extension(
     B,
     "data",
     String,

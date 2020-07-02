@@ -109,7 +109,7 @@ class SyncClient(GenericWSClient):
 
         logger.debug(f"model extension: {extension}")
         fieldname = msg['field_name']
-        extension_field = extension[fieldname]
+        extension_field = extension.fields[fieldname]
         await extension_field.send_payload_fn(obj, fieldname, self.websocket, session)
 
     async def run_push(self, session: Optional[sqlalchemy.orm.session.Session] = None):

@@ -10,7 +10,7 @@ import inspect
 
 from dbsync.client.compression import unsynched_objects, trim
 from dbsync.client.tracking import track, start_tracking
-from dbsync.models import extend
+
 from dbsync.client.register import (
 	register,
 	isregistered,

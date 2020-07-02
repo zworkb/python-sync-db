@@ -18,7 +18,7 @@ def register_client_tracking():
     # client.start_tracking(B, ("push",))
 
 
-def create_sync_client(pid: int = 0, reset_db=True):
+def create_sync_client(pid: int = 0, reset_db=True) -> SyncClient:
     from dbsync import core
     core.mode = "client"
     dbname = client_db(pid)
@@ -49,14 +49,14 @@ def sync_client():
     return create_sync_client(0)
 
 
-def create_sync_client_registered(pid: int = 0, reset_db=True):
+def create_sync_client_registered(pid: int = 0, reset_db=True) -> SyncClient:
     sync_client = create_sync_client(pid, reset_db=reset_db)
     asyncio.run(sync_client.register())
     return sync_client
 
 
 @pytest.fixture(scope="function")
-def sync_client_registered():
+def sync_client_registered() -> SyncClient:
     return create_sync_client_registered(0)
 
 
