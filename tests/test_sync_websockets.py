@@ -181,8 +181,8 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     for b in Bs:
         assert bool(b.comment)
-        assert b.comment == f"processed_before: {str(b.id).replace('-','')}"
-        assert b.comment_after == f"processed_after: {str(b.id).replace('-','')}"
+        assert b.comment == f"processed_before_i: {str(b.id).replace('-','')}"
+        assert b.comment_after == f"processed_after_i: {str(b.id).replace('-','')}"
 
 
     b2 = server_session.query(B).filter(B.name == "second b  updated").one()
@@ -197,8 +197,8 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     for b in Bs:
         assert bool(b.comment)
-        assert b.comment == f"processed_before: {str(b.id).replace('-','')}"
-        assert b.comment_after == f"processed_after: {str(b.id).replace('-','')}"
+        assert b.comment == f"processed_before_i: {str(b.id).replace('-','')}"
+        assert b.comment_after == f"processed_after_i: {str(b.id).replace('-','')}"
 
 
 
