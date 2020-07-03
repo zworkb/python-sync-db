@@ -92,9 +92,9 @@ class ExtensionField:
 
 @dataclass
 class Extension:
-    before_operation_fn: Optional[Callable[[SQLClass, Session], None]] = None
+    before_operation_fn: Optional[Callable[[SQLClass, "Operation", Session], None]] = None
     """is called before an object is inserted/updated_deleted"""
-    after_operation_fn: Optional[Callable[[SQLClass, Session], None]] = None
+    after_operation_fn: Optional[Callable[[SQLClass, "Operation", Session], None]] = None
     """is called after an object is inserted/updated_deleted"""
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
@@ -463,13 +463,13 @@ class Operation(Base):
     def call_before_operation_fn(self, obj: SQLClass, session: Session):
         extension: Extension = get_model_extension_for_obj(obj)
         if extension and extension.before_operation_fn:
-            extension.before_operation_fn(obj, session)
+            extension.before_operation_fn(obj, self, session)
 
 
     def call_after_operation_fn(self, obj: SQLClass, session: Session):
         extension: Extension = get_model_extension_for_obj(obj)
         if extension and extension.after_operation_fn:
-            extension.after_operation_fn(obj, session)
+            extension.after_operation_fn(obj, self, session)
 
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,

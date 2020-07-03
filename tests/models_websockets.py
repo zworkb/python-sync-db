@@ -171,12 +171,12 @@ async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: W
             fh.write(payload)
 
 
-def before_b(model: SQLClass, session: Session):
+def before_b(model: SQLClass, operation: Operation, session: Session):
     print("before_name:", model, session)
     model.comment = f"processed_before: {model.id}"
 
 
-def after_b(model: SQLClass, session: Session):
+def after_b(model: SQLClass, operation: Operation, session: Session):
     print("before_name:", model, session)
     model.comment_after = f"processed_after: {model.id}"
 
