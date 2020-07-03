@@ -167,6 +167,13 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     Bs = server_session.query(B).all()
     assert len(Bs) > 0
 
+    # check if before_operation_fn has been called
+    # test is setup so that before_operation_fn sets the ``comment`` field
+    for b in Bs:
+        assert bool(b.comment)
+        assert b.comment == f"processed_before: {str(b.id).replace('-','')}"
+        assert b.comment_after == f"processed_after: {str(b.id).replace('-','')}"
+
     versions = client_session.query(Version).all()
     assert len(versions) == 1
 
@@ -185,6 +192,7 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     versions = client_session.query(Version).all()
     assert len(versions) == 2
+
 
 
 def push_only(nr: int):
@@ -279,6 +287,7 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, serve
     with multiprocessing.Pool() as pool:
         for id in [3, 5]:
             res = pool.apply(push_only, [id])
+
 
 @pytest.mark.asyncio
 async def test_push_and_change_with_multiple_clients_sequential(sync_server, server_session, client_session):

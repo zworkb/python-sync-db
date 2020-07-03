@@ -53,7 +53,6 @@ class ExtensionField:
     Original proposal: https://gist.github.com/kklingenberg/7336576
     """
 
-
     klass: TypeEngine = None
     """
     *klass* should be an instance of a SQLAlchemy type class, or
@@ -94,7 +93,9 @@ class ExtensionField:
 @dataclass
 class Extension:
     before_operation_fn: Optional[Callable[[SQLClass, Session], None]] = None
-    """is called when an object is inserted/updated_deleted"""
+    """is called before an object is inserted/updated_deleted"""
+    after_operation_fn: Optional[Callable[[SQLClass, Session], None]] = None
+    """is called after an object is inserted/updated_deleted"""
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
 
@@ -107,7 +108,7 @@ Extensions = Dict[
 model_extensions: Extensions = {}
 
 
-def add_field_extension(model: SQLClass, fieldname: str, extension_field: ExtensionField):
+def add_field_extension(model: Type[SQLClass], fieldname: str, extension_field: ExtensionField):
     assert inspect.isclass(model), "model must be a mapped class"
     assert isinstance(fieldname, str) and bool(fieldname),\
         "field name must be a non-empty string"
@@ -204,10 +205,18 @@ def call_handlers_for_extension(operation: "Operation", obj: SQLClass, session: 
             extension.before_operation_fn(obj, session)
 
 
+def call_before_operation_fn(operation: "Operation", obj: SQLClass, session: Session):
+    ...
+
+
+def call_after_operation_fn(operation: "Operation", obj: SQLClass, session: Session):
+    ...
+
+
 async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
                                          websocket: WebSocketCommonProtocol, session: Session):
     """
-    requests payload data for a given object via a given websocket
+    requests payload data for a given object via a given websocket, invoked by perform_async()
     """
     # breakpoint()
     extension: Extension
@@ -451,6 +460,17 @@ class Operation(Base):
                 "the operation doesn't specify a valid command ('i', 'u', 'd')",
                 operation)
 
+    def call_before_operation_fn(self, obj: SQLClass, session: Session):
+        extension: Extension = get_model_extension_for_obj(obj)
+        if extension and extension.before_operation_fn:
+            extension.before_operation_fn(obj, session)
+
+
+    def call_after_operation_fn(self, obj: SQLClass, session: Session):
+        extension: Extension = get_model_extension_for_obj(obj)
+        if extension and extension.after_operation_fn:
+            extension.after_operation_fn(obj, session)
+
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
                       websocket: Optional[WebSocketCommonProtocol] = None
@@ -488,9 +508,10 @@ class Operation(Base):
                     "no object backing the operation in container", operation)
             if obj is None:
                 logger.info(f"insert: calling request_payloads_for_extension for: {pull_obj.id}")
+                operation.call_before_operation_fn(pull_obj, session)
                 await request_payloads_for_extension(operation, pull_obj, websocket, session)
-
                 session.add(pull_obj)
+                operation.call_after_operation_fn(pull_obj, session)
             else:
                 # Don't raise an exception if the incoming object is
                 # exactly the same as the local one.

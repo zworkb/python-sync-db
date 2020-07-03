@@ -11,7 +11,7 @@ from websockets import WebSocketCommonProtocol
 
 from dbsync.client.wsclient import SyncClient
 from dbsync.createlogger import create_logger
-from dbsync.models import Operation, SQLClass, add_field_extension, ExtensionField
+from dbsync.models import Operation, SQLClass, add_field_extension, ExtensionField, extend_model
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker, Session
@@ -78,6 +78,8 @@ class B(Base):
     a_id = Column(GUID, ForeignKey("test_a.id"))
     data = Column(String)
     pid = Column(String)
+    comment = Column(String)
+    comment_after = Column(String)
 
     a = relationship(A, backref="bs")
 
@@ -169,9 +171,14 @@ async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: W
             fh.write(payload)
 
 
-def before_name(*a):
-    # breakpoint()
-    print("before_name:", a)
+def before_b(model: SQLClass, session: Session):
+    print("before_name:", model, session)
+    model.comment = f"processed_before: {model.id}"
+
+
+def after_b(model: SQLClass, session: Session):
+    print("before_name:", model, session)
+    model.comment_after = f"processed_after: {model.id}"
 
 
 # extend(
@@ -182,10 +189,13 @@ def before_name(*a):
 # )
 
 
-# extend_model(
-#     B,
-#
-# )
+extend_model(
+    B,
+    before_operation_fn=before_b,
+    after_operation_fn=after_b
+
+)
+
 add_field_extension(
     B,
     "data",
