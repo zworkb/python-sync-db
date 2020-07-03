@@ -47,10 +47,38 @@ class SQLClass(Protocol):
 
 @dataclass
 class ExtensionField:
+    """
+    Extends *model* with a field of name *fieldname* and type
+    *fieldtype*.
+    Original proposal: https://gist.github.com/kklingenberg/7336576
+    """
+
+
     klass: TypeEngine = None
+    """
+    *klass* should be an instance of a SQLAlchemy type class, or
+    the class itself.
+    """
     loadfn: Optional[Callable[[SQLClass], Any]] = None
+    """
+    *loadfn* is a function called to populate the extension. It should
+    accept an instance of the model and should return the value of the
+    field.
+    """
     savefn: Optional[Callable[[SQLClass, Any], None]] = None
+    """
+    *savefn* is a function called to persist the field. It should
+    accept the instance of the model and the field's value. It's
+    return value is ignored."""
     deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None
+    """
+    *deletefn* is a function called to revert the side effects of
+    *savefn* for old values. It gets called after an update on the
+    object with the old object's values, or after a delete. *deletefn*
+    is optional, and if given it should be a function of two
+    arguments: the first is the object in the previous state, the
+    second is the object in the current state."""
+
     receive_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol, Session], Coroutine[Any, Any, None]]] = None
     """is called on server side to request payload from the client side"""
     send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
@@ -78,45 +106,13 @@ Extensions = Dict[
 #: Extensions to tracked models.
 model_extensions: Extensions = {}
 
-def add_field_extension(
-        model: SQLClass,
-        fieldname: str,
-        fieldtype: Union[Type[TypeEngine], TypeEngine],
-        loadfn: Callable[[SQLClass], Any] = None,
-        savefn: Callable[[SQLClass, Any], None] = None,
-        deletefn: Optional[Callable[[SQLClass, SQLClass], None]] = None,
-        receive_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol, Session], Coroutine[Any, Any, None]]] = None,
-        send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None,
-):
-    """
-    Extends *model* with a field of name *fieldname* and type
-    *fieldtype*.
 
-    *fieldtype* should be an instance of a SQLAlchemy type class, or
-    the class itself.
-
-    *loadfn* is a function called to populate the extension. It should
-    accept an instance of the model and should return the value of the
-    field.
-
-    *savefn* is a function called to persist the field. It should
-    accept the instance of the model and the field's value. It's
-    return value is ignored.
-
-    *deletefn* is a function called to revert the side effects of
-    *savefn* for old values. It gets called after an update on the
-    object with the old object's values, or after a delete. *deletefn*
-    is optional, and if given it should be a function of two
-    arguments: the first is the object in the previous state, the
-    second is the object in the current state.
-
-    Original proposal: https://gist.github.com/kklingenberg/7336576
-    """
+def add_field_extension(model: SQLClass, fieldname: str, extension_field: ExtensionField):
     assert inspect.isclass(model), "model must be a mapped class"
     assert isinstance(fieldname, str) and bool(fieldname),\
         "field name must be a non-empty string"
 
-    if loadfn or savefn:
+    if extension_field.loadfn or extension_field.savefn:
         assert not hasattr(model, fieldname),\
             "the model {0} already has the attribute {1}".\
             format(model.__name__, fieldname)
@@ -124,21 +120,28 @@ def add_field_extension(
     if not extension:
         extension = Extension()
 
-    type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
-    extension.fields[fieldname] = ExtensionField(
-        type_, loadfn, savefn, deletefn, receive_payload_fn,
-        send_payload_fn)
+    # type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
+    extension.fields[fieldname] = extension_field
     model_extensions[model.__name__] = extension
 
 
 def get_model_extension_for_obj(obj: SQLClass) -> Optional[Extension]:
-    ext: Extension = model_extensions.get(type(obj).__name__, None)
+    ext: Extension = get_model_extension_for_class(type(obj))
     return ext
 
 
 def get_model_extension_for_class(klass: Type[SQLClass]) -> Optional[Extension]:
-    ext: Extension = model_extensions.get(type(klass).__name__, None)
+    ext: Extension = model_extensions.get(klass.__name__, None)
     return ext
+
+
+def extend_model(klass: Type[SQLClass], **kw) -> None:
+    name = klass.__name__
+    ext: Extension = model_extensions.get(name, None)
+    if ext:
+        ext.__dict__.update(**kw)
+    else:
+        model_extensions[name] = Extension(**kw)
 
 
 def _has_extensions(obj: SQLClass) -> bool:
@@ -191,6 +194,7 @@ def create_field_request_message(obj: SQLClass, field: str):
     from dbsync.messages.codecs import SyncdbJSONEncoder
     return json.dumps(res, cls=SyncdbJSONEncoder)
 
+
 def call_handlers_for_extension(operation: "Operation", obj: SQLClass, session: Session):
     extfield: ExtensionField
     extension: Extension = get_model_extension_for_obj(obj)
@@ -205,6 +209,7 @@ async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
     """
     requests payload data for a given object via a given websocket
     """
+    # breakpoint()
     extension: Extension
     extfield: ExtensionField
     extension: Extension = get_model_extension_for_obj(obj)

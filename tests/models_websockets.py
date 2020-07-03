@@ -11,7 +11,7 @@ from websockets import WebSocketCommonProtocol
 
 from dbsync.client.wsclient import SyncClient
 from dbsync.createlogger import create_logger
-from dbsync.models import Operation, SQLClass, add_field_extension
+from dbsync.models import Operation, SQLClass, add_field_extension, ExtensionField
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker, Session
@@ -102,7 +102,7 @@ def addstuff(Session: sessionmaker, par: Union[str, int] = ""):
         fh.write("b2" * 10_000)
 
     session = Session()
-    session.add_all([a1, a2, a3,  b1, b2, b3])
+    session.add_all([a1, a2, a3, b1, b2, b3])
     session.commit()
 
 
@@ -154,7 +154,8 @@ async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonPr
         await websocket.send(json.dumps(False))
 
 
-async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol, session: Session):
+async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol,
+                               session: Session):
     """
     this example function shows the receive end for the payload data
     """
@@ -167,9 +168,11 @@ async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: W
         with open(datapath(o.data), "w") as fh:
             fh.write(payload)
 
+
 def before_name(*a):
     # breakpoint()
     print("before_name:", a)
+
 
 # extend(
 #     B,
@@ -178,13 +181,19 @@ def before_name(*a):
 #     before_operation_fn=before_name
 # )
 
+
+# extend_model(
+#     B,
+#
+# )
 add_field_extension(
     B,
     "data",
-    String,
-    receive_payload_fn=receive_payload_data,
-    send_payload_fn=send_payload_data
-
+    ExtensionField(
+        String,
+        receive_payload_fn=receive_payload_data,
+        send_payload_fn=send_payload_data
+    )
 )
 
 # extend(
