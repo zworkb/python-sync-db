@@ -205,13 +205,6 @@ def call_handlers_for_extension(operation: "Operation", obj: SQLClass, session: 
             extension.before_operation_fn(obj, session)
 
 
-def call_before_operation_fn(operation: "Operation", obj: SQLClass, session: Session):
-    ...
-
-
-def call_after_operation_fn(operation: "Operation", obj: SQLClass, session: Session):
-    ...
-
 
 async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
                                          websocket: WebSocketCommonProtocol, session: Session):
@@ -552,7 +545,9 @@ class Operation(Base):
             if pull_obj is None:
                 raise OperationError(
                     "no object backing the operation in container", operation)
+            operation.call_before_operation_fn(pull_obj, session)
             session.merge(pull_obj)
+            operation.call_after_operation_fn(pull_obj, session)
 
         elif operation.command == 'd':
             try:
