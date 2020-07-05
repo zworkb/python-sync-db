@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import json
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 
 import sqlalchemy
 
@@ -12,7 +12,7 @@ from dbsync.core import with_transaction, with_transaction_async
 from dbsync.messages.codecs import SyncdbJSONEncoder
 from dbsync.messages.pull import PullRequestMessage, PullMessage
 from dbsync.messages.push import PushMessage
-from dbsync.models import OperationError, Version, Operation, attr
+from dbsync.models import OperationError, Version, Operation, attr, SQLClass
 from dbsync.server import before_push, after_push
 from dbsync.server.conflicts import find_unique_conflicts
 from dbsync.server.handlers import PullRejected
@@ -99,9 +99,12 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
 
         # II) perform the operations
         operations = [o for o in pushmsg.operations if o.tracked_model is not None]
+        post_operations: List[Tuple[Operation, SQLClass]] = []
         try:
+            op: Operation
             for op in operations:
-                await op.perform_async(pushmsg, session, pushmsg.node_id, connection.socket)
+                obj: Optional[SQLClass] = await op.perform_async(pushmsg, session, pushmsg.node_id, connection.socket)
+                post_operations.append((op, obj))
                 resp = dict(
                     type="info",
                     op=dict(
@@ -131,6 +134,9 @@ async def push(connection: Connection, session: sqlalchemy.orm.Session):
             session.add(new_op)
             new_op.version = version
             session.flush()
+
+        for op, obj in post_operations:
+            op.call_after_operation_fn(session, obj)
 
         for listener in after_push:
             listener(session, pushmsg)

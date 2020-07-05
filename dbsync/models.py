@@ -92,9 +92,9 @@ class ExtensionField:
 
 @dataclass
 class Extension:
-    before_operation_fn: Optional[Callable[[SQLClass, "Operation", Session], None]] = None
+    before_operation_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
     """is called before an object is inserted/updated_deleted"""
-    after_operation_fn: Optional[Callable[[SQLClass, "Operation", Session], None]] = None
+    after_operation_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
     """is called after an object is inserted/updated_deleted"""
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
@@ -108,7 +108,7 @@ Extensions = Dict[
 model_extensions: Extensions = {}
 
 
-def add_field_extension(model: Type[SQLClass], fieldname: str, extension_field: ExtensionField):
+def add_field_extension(model: DeclarativeMeta, fieldname: str, extension_field: ExtensionField):
     assert inspect.isclass(model), "model must be a mapped class"
     assert isinstance(fieldname, str) and bool(fieldname),\
         "field name must be a non-empty string"
@@ -131,12 +131,12 @@ def get_model_extension_for_obj(obj: SQLClass) -> Optional[Extension]:
     return ext
 
 
-def get_model_extension_for_class(klass: Type[SQLClass]) -> Optional[Extension]:
+def get_model_extension_for_class(klass: DeclarativeMeta) -> Optional[Extension]:
     ext: Extension = model_extensions.get(klass.__name__, None)
     return ext
 
 
-def extend_model(klass: Type[SQLClass], **kw) -> None:
+def extend_model(klass: DeclarativeMeta, **kw) -> None:
     name = klass.__name__
     ext: Extension = model_extensions.get(name, None)
     if ext:
@@ -343,7 +343,7 @@ class Operation(Base):
         ForeignKey(Version.__tablename__ + ".version_id"),
         nullable=True)
     content_type_id = Column(BigInteger)
-    tracked_model = None # to be injected
+    tracked_model: DeclarativeMeta = None # to be injected
     command = Column(String(1))
     command_options = ('i', 'u', 'd')
     order = Column(Integer, primary_key=True)
@@ -453,21 +453,20 @@ class Operation(Base):
                 "the operation doesn't specify a valid command ('i', 'u', 'd')",
                 operation)
 
-    def call_before_operation_fn(self, obj: SQLClass, session: Session):
+    def call_before_operation_fn(self, session: Session, obj: SQLClass):
         extension: Extension = get_model_extension_for_obj(obj)
         if extension and extension.before_operation_fn:
-            extension.before_operation_fn(obj, self, session)
+            extension.before_operation_fn(session, self, obj)
 
-
-    def call_after_operation_fn(self, obj: SQLClass, session: Session):
+    def call_after_operation_fn(self, session: Session, obj: SQLClass):
         extension: Extension = get_model_extension_for_obj(obj)
         if extension and extension.after_operation_fn:
-            extension.after_operation_fn(obj, self, session)
+            extension.after_operation_fn(session, self, obj)
 
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
                       websocket: Optional[WebSocketCommonProtocol] = None
-                      ):
+                      ) -> Optional[SQLClass]:
         """
         Performs *operation*, looking for required data in
         *container*, and using *session* to perform it.
@@ -481,7 +480,8 @@ class Operation(Base):
         If at any moment this operation fails for predictable causes,
         it will raise an *OperationError*.
         """
-        model = operation.tracked_model
+        model: DeclarativeMeta = operation.tracked_model
+        res: Optional[SQLClass] = None
         if model is None:
             raise OperationError("no content type for this operation", operation)
 
@@ -501,10 +501,11 @@ class Operation(Base):
                     "no object backing the operation in container", operation)
             if obj is None:
                 logger.info(f"insert: calling request_payloads_for_extension for: {pull_obj.id}")
-                operation.call_before_operation_fn(pull_obj, session)
+                operation.call_before_operation_fn(session, pull_obj)
                 await request_payloads_for_extension(operation, pull_obj, websocket, session)
                 session.add(pull_obj)
-                operation.call_after_operation_fn(pull_obj, session)
+                res = pull_obj
+                # operation.call_after_operation_fn(pull_obj, session)
             else:
                 # Don't raise an exception if the incoming object is
                 # exactly the same as the local one.
@@ -545,9 +546,10 @@ class Operation(Base):
             if pull_obj is None:
                 raise OperationError(
                     "no object backing the operation in container", operation)
-            operation.call_before_operation_fn(pull_obj, session)
+            operation.call_before_operation_fn(session, pull_obj)
             session.merge(pull_obj)
-            operation.call_after_operation_fn(pull_obj, session)
+            res = pull_obj
+            # operation.call_after_operation_fn(pull_obj, session)
 
         elif operation.command == 'd':
             try:
@@ -569,10 +571,15 @@ class Operation(Base):
                     node_id,
                     operation)
             else:
+                extension: Extension = get_model_extension_for_obj(obj)
+                operation.call_before_operation_fn(session, obj)
                 session.delete(obj)
+                res = obj
 
         else:
             raise OperationError(
                 "the operation doesn't specify a valid command ('i', 'u', 'd')",
                 operation)
 
+
+        return res

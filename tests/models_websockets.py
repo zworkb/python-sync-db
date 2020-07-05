@@ -171,14 +171,18 @@ async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: W
             fh.write(payload)
 
 
-def before_b(model: SQLClass, operation: Operation, session: Session):
-    print("before_name:", model, session)
+def before_b(session: Session, operation: Operation, model: SQLClass):
+    print("***************before_name:", operation.command, model, session)
     model.comment = f"processed_before_{operation.command}: {model.id}"
+    print(model.comment)
 
 
-def after_b(model: SQLClass, operation: Operation, session: Session):
-    print("before_name:", model, session)
-    model.comment_after = f"processed_after_{operation.command}: {model.id}"
+def after_b(session: Session, operation: Operation, model: SQLClass):
+    print("***************before_name:", operation.command, model, session)
+    print(model.comment)
+    if operation.command == 'i':
+        model.comment_after = f"processed_after_{operation.command}: {model.id}"
+    print(model.comment)
 
 
 # extend(
@@ -193,7 +197,6 @@ extend_model(
     B,
     before_operation_fn=before_b,
     after_operation_fn=after_b
-
 )
 
 add_field_extension(
