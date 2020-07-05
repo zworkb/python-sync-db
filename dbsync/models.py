@@ -92,10 +92,25 @@ class ExtensionField:
 
 @dataclass
 class Extension:
-    before_operation_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
-    """is called before an object is inserted/updated_deleted"""
+    before_operation_fn: Optional[Callable[[Session, "Operation", SQLClass, Optional[SQLClass]], None]] = None
+    """is called before an object is inserted/updated/deleted"""
+    before_insert_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called before an object is inserted"""
+    before_update_fn: Optional[Callable[[Session, SQLClass, SQLClass], None]] = None
+    """is called before an object is updated"""
+    before_delete_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called before an object is deleted"""
+
     after_operation_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
-    """is called after an object is inserted/updated_deleted"""
+    """is called after an object is inserted/updated/deleted"""
+    after_insert_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called after an object is inserted"""
+    after_update_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called after an object is updated"""
+    after_delete_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called after an object is deleted"""
+
+
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
 
@@ -453,15 +468,29 @@ class Operation(Base):
                 "the operation doesn't specify a valid command ('i', 'u', 'd')",
                 operation)
 
-    def call_before_operation_fn(self, session: Session, obj: SQLClass):
+    def call_before_operation_fn(self, session: Session, obj: SQLClass, old_obj: Optional[SQLClass] = None):
         extension: Extension = get_model_extension_for_obj(obj)
-        if extension and extension.before_operation_fn:
-            extension.before_operation_fn(session, self, obj)
+        if extension:
+            if extension.before_operation_fn:
+                extension.before_operation_fn(session, self, obj, old_obj)
+            if self.command == 'i' and extension.before_insert_fn:
+                extension.before_insert_fn(session, obj)
+            elif self.command == 'u' and extension.before_update_fn:
+                extension.before_update_fn(session, obj, old_obj)
+            elif self.command == 'd' and extension.before_delete_fn:
+                extension.before_delete_fn(session, obj)
 
     def call_after_operation_fn(self, session: Session, obj: SQLClass):
         extension: Extension = get_model_extension_for_obj(obj)
-        if extension and extension.after_operation_fn:
-            extension.after_operation_fn(session, self, obj)
+        if extension:
+            if extension.after_operation_fn:
+                extension.after_operation_fn(session, self, obj)
+            if self.command == 'i' and extension.after_insert_fn:
+                extension.after_insert_fn(session, obj)
+            elif self.command == 'u' and extension.after_update_fn:
+                extension.after_update_fn(session, obj)
+            elif self.command == 'd' and extension.after_delete_fn:
+                extension.after_delete_fn(session, obj)
 
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
@@ -546,7 +575,7 @@ class Operation(Base):
             if pull_obj is None:
                 raise OperationError(
                     "no object backing the operation in container", operation)
-            operation.call_before_operation_fn(session, pull_obj)
+            operation.call_before_operation_fn(session, pull_obj, obj)
             session.merge(pull_obj)
             res = pull_obj
             # operation.call_after_operation_fn(pull_obj, session)

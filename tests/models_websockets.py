@@ -4,7 +4,7 @@ import datetime
 import os
 import time
 import uuid
-from typing import Union
+from typing import Union, Optional
 
 import pytest
 from websockets import WebSocketCommonProtocol
@@ -64,6 +64,8 @@ class A(Base):
     id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String)
     pid = Column(String)
+    comment = Column(String)
+    comment_after = Column(String)
 
     def __repr__(self):
         return u"<A id:{0} name:{1}>".format(self.id, self.name)
@@ -171,7 +173,7 @@ async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: W
             fh.write(payload)
 
 
-def before_b(session: Session, operation: Operation, model: SQLClass):
+def before_b(session: Session, operation: Operation, model: SQLClass, old_model: Optional[SQLClass]):
     print("***************before_name:", operation.command, model, session)
     model.comment = f"processed_before_{operation.command}: {model.id}"
     print(model.comment)
@@ -192,6 +194,17 @@ def after_b(session: Session, operation: Operation, model: SQLClass):
 #     before_operation_fn=before_name
 # )
 
+def after_a_insert(session: Session, obj:A):
+    obj.comment_after = f"after install A:{obj.id}"
+
+def before_a_update(session:Session, obj: A, old_object: A):
+    obj.comment = f"update for A: {obj.id}"
+    
+extend_model(
+    A,
+    after_insert_fn=after_a_insert,
+    before_update_fn=before_a_update
+)
 
 extend_model(
     B,
