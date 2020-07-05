@@ -44,7 +44,7 @@ class SyncServer(GenericWSServer):
 
 @SyncServer.handler("/push")
 @with_transaction_async()
-async def push(connection: Connection, session: sqlalchemy.orm.Session):
+async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
     async for msg in connection.socket:
         msg_json = json.loads(msg)
         pushmsg = PushMessage(msg_json)

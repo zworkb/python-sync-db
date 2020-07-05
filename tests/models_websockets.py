@@ -66,6 +66,7 @@ class A(Base):
     pid = Column(String)
     comment = Column(String)
     comment_after = Column(String)
+    comment_after_update = Column(String)
 
     def __repr__(self):
         return u"<A id:{0} name:{1}>".format(self.id, self.name)
@@ -180,10 +181,17 @@ def before_b(session: Session, operation: Operation, model: SQLClass, old_model:
 
 
 def after_b(session: Session, operation: Operation, model: SQLClass):
+    """
+    after update it is important to call 'merge' if model is changed in this function
+    since model is not part of the session
+    """
     print("***************before_name:", operation.command, model, session)
     print(model.comment)
-    if operation.command == 'i':
+    if operation.command != 'd':
         model.comment_after = f"processed_after_{operation.command}: {model.id}"
+
+    if operation.command == 'u':
+        session.merge(model)
     print(model.comment)
 
 
@@ -195,15 +203,24 @@ def after_b(session: Session, operation: Operation, model: SQLClass):
 # )
 
 def after_a_insert(session: Session, obj:A):
-    obj.comment_after = f"after install A:{obj.id}"
+    obj.comment_after = f"after insert A:{obj.id}"
+
 
 def before_a_update(session:Session, obj: A, old_object: A):
     obj.comment = f"update for A: {obj.id}"
-    
+
+
+def after_a_update(session: Session, obj: A):
+    obj.comment_after_update = f"after update for A: {obj.id}"
+    session.merge(obj)
+    print ("after update:", obj.comment_after_update)
+
+
 extend_model(
     A,
     after_insert_fn=after_a_insert,
-    before_update_fn=before_a_update
+    before_update_fn=before_a_update,
+    after_update_fn=after_a_update
 )
 
 extend_model(

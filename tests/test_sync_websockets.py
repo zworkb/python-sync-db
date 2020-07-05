@@ -198,9 +198,7 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
         server_session.refresh(b)
         assert bool(b.comment)
         assert b.comment == f"processed_before_u: {str(b.id).replace('-','')}"
-        # XXX: this should be only written by insert
-        # but due to update on client side None gets pushed there
-        # assert b.comment_after == f"processed_after_i: {str(b.id).replace('-','')}"
+        assert b.comment_after == f"processed_after_u: {str(b.id).replace('-','')}"
 
 
 
