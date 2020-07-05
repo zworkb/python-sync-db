@@ -195,13 +195,6 @@ def after_b(session: Session, operation: Operation, model: SQLClass):
     print(model.comment)
 
 
-# extend(
-#     B,
-#     "name",
-#     String,
-#     before_operation_fn=before_name
-# )
-
 def after_a_insert(session: Session, obj:A):
     obj.comment_after = f"after insert A:{obj.id}"
 
