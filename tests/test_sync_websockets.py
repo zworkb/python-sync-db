@@ -19,7 +19,7 @@ from dbsync.socketclient import GenericWSClient
 from dbsync.socketserver import Connection
 
 
-from tests.models_websockets import SERVER_URL, addstuff, changestuff, A, B, datapath
+from tests.models_websockets import SERVER_URL, addstuff, changestuff, A, B, datapath, deletestuff
 from .models_websockets import PORT
 from .server_setup import sync_server, server_session, server_db
 from .client_setup import sync_client, client_session, sync_client_registered, client_db, create_sync_client_registered
@@ -112,7 +112,7 @@ async def test_tracking_add(sync_server, sync_client):
 
     ops = sess.query(Operation).all()
 
-    assert len(ops) == 6
+    assert len(ops) == 8
 
 
 @pytest.mark.asyncio
@@ -122,11 +122,11 @@ async def test_tracking_add_change(sync_server, sync_client, server_session, cli
 
     ops = client_session.query(Operation).all()
 
-    assert len(ops) == 9
+    assert len(ops) == 12
 
 
 # @pytest.mark.asyncio
-@pytest.mark.parametrize("compress_info", [(False, 9), (True, 5)])
+@pytest.mark.parametrize("compress_info", [(False, 12), (True, 7)])
 def test_push_message(sync_client, client_session, compress_info):
     do_compress, N = compress_info
     addstuff(sync_client.Session)
@@ -180,7 +180,6 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     # and now change something
     changestuff(sync_client_registered.Session)
-
     await sync_client_registered.synchronize()
 
     b2 = server_session.query(B).filter(B.name == "second b  updated").one()
@@ -200,6 +199,37 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
         assert b.comment == f"processed_before_u: {str(b.id).replace('-','')}"
         assert b.comment_after == f"processed_after_u: {str(b.id).replace('-','')}"
 
+    As_client = client_session.query(A).all()
+    assert len(As_client) == 5
+
+    # because one A should not be synced len is one less
+    As_server = server_session.query(A).all()
+    assert len(As_server) == 4
+
+    a5_server: A = server_session.query(A).filter(A.key == "a5").one()
+    ### assert a5_server.comment_after_update == f"after update for A: {str(a5_server.id).replace('-', '')}"
+    # comment_after_update must be None because for a5 update will be skipped
+    assert a5_server.comment_after_update is None
+
+    # now check the delete handlers, we delete a3 and a5, but for a3 we will raise a SkipOperation
+    # so it wont be deleted
+    a3_client = client_session.query(A).filter(A.key == "a3").one()
+    a5_client = client_session.query(A).filter(A.key == "a5").one()
+
+    # client_session.delete(a3_client)
+    # client_session.delete(a5_client)
+    # client_session.commit()
+
+    deletestuff(sync_client_registered.Session)
+
+    As_client = client_session.query(A).all()
+    assert len(As_client) == 3
+
+    await sync_client_registered.synchronize()
+
+    # because we skipped deletion of a3 we should have 3 As on server
+    As_server = server_session.query(A).all()
+    assert len(As_server) == 3
 
 
 def push_only(nr: int):

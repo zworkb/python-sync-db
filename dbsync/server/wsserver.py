@@ -104,7 +104,11 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
             op: Operation
             for op in operations:
                 obj: Optional[SQLClass] = await op.perform_async(pushmsg, session, pushmsg.node_id, connection.socket)
-                post_operations.append((op, obj))
+
+                if obj:
+                    # if the op has been skipped, it wont be appended for post_operation handling
+                    post_operations.append((op, obj))
+
                 resp = dict(
                     type="info",
                     op=dict(

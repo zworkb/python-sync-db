@@ -97,7 +97,7 @@ class SyncClient(GenericWSClient):
         return message
 
     async def send_field_payload(self, session: sqlalchemy.orm.Session, msg: Dict[str, Any]):
-        ...
+
         logger.debug(f"send_field_payload:{msg}")
         # breakpoint()
         module = importlib.import_module(msg['package_name'])
@@ -117,6 +117,8 @@ class SyncClient(GenericWSClient):
         new_version_id: Optional[int]
         if not session:
             session = self.Session()
+
+        # breakpoint()
         message = self.create_push_message(session=session)
 
         logger.info(f"number of operations: {len(message.operations)}")

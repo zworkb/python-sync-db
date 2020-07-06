@@ -28,6 +28,7 @@ def changestuff():
     session.delete(b3)
     session.commit()
 
+
 def setup():
     pass
 

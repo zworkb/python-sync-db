@@ -62,6 +62,8 @@ def make_listener(command: str) -> Callable[[Mapper, Connection, SQLClass], Opti
     """Builds a listener for the given command (i, u, d)."""
 
     def listener(mapper: Mapper, connection: Connection, target: SQLClass) -> Optional[Operation]:
+        # if command == 'd':
+        #     breakpoint()
         return _add_operation(command, mapper, target)
 
     return listener

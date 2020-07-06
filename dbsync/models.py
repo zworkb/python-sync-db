@@ -341,6 +341,13 @@ class Version(Base):
 class OperationError(Exception): pass
 
 
+class SkipOperation(Exception):
+    """
+    This exception is not an error, it is intended to be raised in the
+    before_insert_fn, before_update_fn, before_delete_fn to avoid the operation to be conducted
+    """
+
+
 class Operation(Base):
     """
     A database operation (insert, delete or update).
@@ -530,10 +537,13 @@ class Operation(Base):
                     "no object backing the operation in container", operation)
             if obj is None:
                 logger.info(f"insert: calling request_payloads_for_extension for: {pull_obj.id}")
-                operation.call_before_operation_fn(session, pull_obj)
-                await request_payloads_for_extension(operation, pull_obj, websocket, session)
-                session.add(pull_obj)
-                res = pull_obj
+                try:
+                    operation.call_before_operation_fn(session, pull_obj)
+                    await request_payloads_for_extension(operation, pull_obj, websocket, session)
+                    session.add(pull_obj)
+                    res = pull_obj
+                except SkipOperation as e:
+                    logger.info(f"operation {operation} skipped")
                 # operation.call_after_operation_fn(pull_obj, session)
             else:
                 # Don't raise an exception if the incoming object is
@@ -575,9 +585,14 @@ class Operation(Base):
             if pull_obj is None:
                 raise OperationError(
                     "no object backing the operation in container", operation)
-            operation.call_before_operation_fn(session, pull_obj, obj)
-            session.merge(pull_obj)
-            res = pull_obj
+
+            try:
+                operation.call_before_operation_fn(session, pull_obj, obj)
+                session.merge(pull_obj)
+                res = pull_obj
+            except SkipOperation as e:
+                logger.info(f"operation {operation} skipped")
+
             # operation.call_after_operation_fn(pull_obj, session)
 
         elif operation.command == 'd':
@@ -601,9 +616,13 @@ class Operation(Base):
                     operation)
             else:
                 extension: Extension = get_model_extension_for_obj(obj)
-                operation.call_before_operation_fn(session, obj)
-                session.delete(obj)
-                res = obj
+                try:
+                    # breakpoint()
+                    operation.call_before_operation_fn(session, obj)
+                    session.delete(obj)
+                    res = obj
+                except SkipOperation as e:
+                    logger.info(f"operation {operation} skipped")
 
         else:
             raise OperationError(

@@ -11,7 +11,7 @@ from websockets import WebSocketCommonProtocol
 
 from dbsync.client.wsclient import SyncClient
 from dbsync.createlogger import create_logger
-from dbsync.models import Operation, SQLClass, add_field_extension, ExtensionField, extend_model
+from dbsync.models import Operation, SQLClass, add_field_extension, ExtensionField, extend_model, SkipOperation
 from dbsync.server.wsserver import SyncServer
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import relationship, sessionmaker, Session
@@ -62,6 +62,7 @@ class A(Base):
     __tablename__ = "test_a"
 
     id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
+    key = Column(String)
     name = Column(String)
     pid = Column(String)
     comment = Column(String)
@@ -77,6 +78,7 @@ class B(Base):
     __tablename__ = "test_b"
 
     id = Column(GUID, primary_key=True, default=lambda: uuid.uuid4())
+    key = Column(String)
     name = Column(String)
     a_id = Column(GUID, ForeignKey("test_a.id"))
     data = Column(String)
@@ -93,12 +95,16 @@ class B(Base):
 
 def addstuff(Session: sessionmaker, par: Union[str, int] = ""):
     logger.debug("ADDSTUFF", par)
-    a1 = A(name=f"first a {par}", pid=par)
-    a2 = A(name=f"second a {par}", pid=par)
-    a3 = A(name=f"third a {par}", pid=par)
-    b1 = B(name=f"first b {par}", a=a1, data=f"b1{par}.txt", pid=par)
-    b2 = B(name=f"second b {par}", a=a1, data=f"b2{par}.txt", pid=par)
-    b3 = B(name=f"third b {par}", a=a2, pid=par)
+    a1 = A(key="a1", name=f"first a {par}", pid=par)
+    a2 = A(key="a2", name=f"second a {par}", pid=par)
+    a3 = A(key="a3", name=f"third a {par}", pid=par)
+    a4 = A(key="a4", name=f"dontsync_insert {par}", pid=par)
+    a5 = A(key="a5", name=f"dontsync_update {par}", pid=par)
+
+    b1 = B(key="b1", name=f"first b {par}", a=a1, data=f"b1{par}.txt", pid=par)
+    b2 = B(key="b2", name=f"second b {par}", a=a1, data=f"b2{par}.txt", pid=par)
+    b3 = B(key="b3", name=f"third b {par}", a=a2, pid=par)
+
 
     with open(datapath(b1.data, pid=par), "w") as fh:
         fh.write("b1" * 10_000)
@@ -107,15 +113,16 @@ def addstuff(Session: sessionmaker, par: Union[str, int] = ""):
         fh.write("b2" * 10_000)
 
     session = Session()
-    session.add_all([a1, a2, a3, b1, b2, b3])
+    session.add_all([a1, a2, a3, a4, a5, b1, b2, b3])
     session.commit()
 
 
 def changestuff(Session: sessionmaker, par=""):
     session = Session()
-    a1, a2, a3 = session.query(A).all()[:3]
+    a1, a2, a3, a4, a5 = session.query(A).all()[:5]
     b1, b2, b3 = session.query(B).all()[:3]
     a1.name = f"first a {par} modified"
+    a5.name = f"a5 modified"
     b2.a = a2
     # lets change b1
     b1.name = f"first b {par} updated"
@@ -124,7 +131,16 @@ def changestuff(Session: sessionmaker, par=""):
     with open(datapath(b2.data, pid=par), "w") as fh:
         fh.write(f"b2 {par} changed")
 
+
     session.delete(b3)
+    session.commit()
+
+
+def deletestuff(Session: sessionmaker, par=""):
+    session = Session()
+    a1, a2, a3, a4, a5 = session.query(A).all()[:5]
+    session.delete(a3)
+    session.delete(a5)
     session.commit()
 
 
@@ -195,25 +211,41 @@ def after_b(session: Session, operation: Operation, model: SQLClass):
     print(model.comment)
 
 
+def before_a_insert(session: Session, obj:A):
+    if obj.key == "a4":
+        raise SkipOperation
+    obj.comment_after = f"before insert A:{obj.id}"
+
+
 def after_a_insert(session: Session, obj:A):
     obj.comment_after = f"after insert A:{obj.id}"
 
 
-def before_a_update(session:Session, obj: A, old_object: A):
+def before_a_update(session: Session, obj: A, old_object: A):
+    if obj.key == "a5":
+        raise SkipOperation
     obj.comment = f"update for A: {obj.id}"
 
 
 def after_a_update(session: Session, obj: A):
     obj.comment_after_update = f"after update for A: {obj.id}"
     session.merge(obj)
-    print ("after update:", obj.comment_after_update)
+    print("after update:", obj.comment_after_update)
+
+
+def before_a_delete(session: Session, obj:A):
+    if obj.key == "a3":
+        print(f"skipping delete for {obj}")
+        raise SkipOperation
 
 
 extend_model(
     A,
+    before_insert_fn=before_a_insert,
     after_insert_fn=after_a_insert,
     before_update_fn=before_a_update,
-    after_update_fn=after_a_update
+    after_update_fn=after_a_update,
+    before_delete_fn=before_a_delete,
 )
 
 extend_model(
