@@ -92,6 +92,9 @@ class ExtensionField:
 
 @dataclass
 class Extension:
+    """
+    all before_* functions can skip the operation by raising SkipOperation
+    """
     before_operation_fn: Optional[Callable[[Session, "Operation", SQLClass, Optional[SQLClass]], None]] = None
     """is called before an object is inserted/updated/deleted"""
     before_insert_fn: Optional[Callable[[Session, SQLClass], None]] = None
@@ -100,6 +103,14 @@ class Extension:
     """is called before an object is updated"""
     before_delete_fn: Optional[Callable[[Session, SQLClass], None]] = None
     """is called before an object is deleted"""
+    before_tracking_fn: Optional[Callable[[Session, str, SQLClass], None]] = None
+    """is called before an object is tracked"""
+    before_insert_tracking_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called before an object is tracked for insert"""
+    before_update_tracking_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called before an object is tracked for update"""
+    before_delete_tracking_fn: Optional[Callable[[Session, SQLClass], None]] = None
+    """is called before an object is tracked for delete"""
 
     after_operation_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
     """is called after an object is inserted/updated/deleted"""
@@ -109,7 +120,6 @@ class Extension:
     """is called after an object is updated"""
     after_delete_fn: Optional[Callable[[Session, SQLClass], None]] = None
     """is called after an object is deleted"""
-
 
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
@@ -121,6 +131,13 @@ Extensions = Dict[
 
 #: Extensions to tracked models.
 model_extensions: Extensions = {}
+
+
+def call_before_tracking_fn(session, command, obj):
+    extension: Optional[Extension] = get_model_extension_for_obj(obj)
+    if extension:
+        if extension.before_tracking_fn:
+            extension.before_tracking_fn(session, command, obj)
 
 
 def add_field_extension(model: DeclarativeMeta, fieldname: str, extension_field: ExtensionField):

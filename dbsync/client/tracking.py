@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapper
 from sqlalchemy.orm.session import Session as GlobalSession, Session
 
 from dbsync import core
-from dbsync.models import Operation
+from dbsync.models import Operation, Extension, get_model_extension_for_obj, SkipOperation, call_before_tracking_fn
 from dbsync.logs import get_logger
 from sqlalchemy.sql import Join
 
@@ -101,15 +101,20 @@ def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Opti
                           "to log operations".format(tname))
         return None
 
-    pk = getattr(target, mapper.primary_key[0].name)
-    op = Operation(
-        row_id=pk,
-        version_id=None, # operation not yet versioned
-        content_type_id=core.synched_models.tables[tname].id,
-        command=command)
-    _operations_queue.append(op)
+    try:
+        call_before_tracking_fn(session, command, target)
+        pk = getattr(target, mapper.primary_key[0].name)
+        op = Operation(
+            row_id=pk,
+            version_id=None,  # operation not yet versioned
+            content_type_id=core.synched_models.tables[tname].id,
+            command=command)
+        _operations_queue.append(op)
+        return op
+    except SkipOperation:
+        logger.info(f"operation {command} skipped for {target}")
+        return None
 
-    return op
 
 
 def start_tracking(model, directions=("push", "pull")):

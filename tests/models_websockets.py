@@ -239,6 +239,12 @@ def before_a_delete(session: Session, obj:A):
         raise SkipOperation
 
 
+def before_a_tracking(session: Session, command: str, obj:SQLClass):
+    print(f"------      before tracking {command} on {obj.key}/{obj.name}")
+    if obj.name == "donttrack":
+        raise SkipOperation
+
+
 extend_model(
     A,
     before_insert_fn=before_a_insert,
@@ -246,6 +252,7 @@ extend_model(
     before_update_fn=before_a_update,
     after_update_fn=after_a_update,
     before_delete_fn=before_a_delete,
+    before_tracking_fn=before_a_tracking
 )
 
 extend_model(

@@ -231,6 +231,23 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     As_server = server_session.query(A).all()
     assert len(As_server) == 3
 
+    # add new a7, and as long name = "donttrack" it wont be synced
+    client_session.add(A(name="donttrack", key="a7"))
+    client_session.commit()
+    await sync_client_registered.synchronize()
+
+    a7_server = server_session.query(A).filter(A.key == "a7").one_or_none()
+    assert a7_server is None
+
+    # now we change name from "donttrack" to something else and thus it should now be transmitted
+    a7_client = client_session.query(A).filter(A.key == "a7").one()
+    a7_client.name = "a7, lets sync now"
+    client_session.commit()
+
+    await sync_client_registered.synchronize()
+    a7_server = server_session.query(A).filter(A.key == "a7").one_or_none()
+    assert a7_server is not None
+
 
 def push_only(nr: int):
     print(">>>>>>>>>>>>>>>>> push only:", nr)
