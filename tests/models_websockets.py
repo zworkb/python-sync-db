@@ -72,6 +72,7 @@ class A(Base):
     def __repr__(self):
         return u"<A id:{0} name:{1}>".format(self.id, self.name)
 
+    __str__ = __repr__
 
 @client.track("push")
 class B(Base):

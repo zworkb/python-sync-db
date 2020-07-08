@@ -28,7 +28,7 @@ core.mode = 'server'
 
 
 def make_listener(command):
-    "Builds a listener for the given command (i, u, d)."
+    """Builds a listener for the given command (i, u, d)."""
     @core.session_committing
     def listener(mapper, connection, target, session=None):
         if getattr(core.SessionClass.object_session(target),

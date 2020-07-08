@@ -11,7 +11,8 @@ from dbsync.core import (
 
 from dbsync.models import Base, save_extensions
 from dbsync.logs import set_log_target
-
+from dbsync.client.tracking import add_operation as add_operation_client
+# from dbsync.server.tracking import add_
 
 __version_info__ = (0, 7, 0)
 __version__ = '.'.join(str(n) for n in __version_info__)

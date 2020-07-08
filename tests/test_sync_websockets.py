@@ -253,7 +253,7 @@ def push_only(nr: int):
     print(">>>>>>>>>>>>>>>>> push only:", nr)
     sync_client: SyncClient = create_sync_client_registered(nr, reset_db=False)
     sess = sync_client.Session()
-    a1, a2, a3 = sess.query(A).filter(A.pid == str(nr))
+    a1, a2, a3 = sess.query(A).filter(A.pid == str(nr))[:3]
     a2.name = f"!!!second a {nr} fixed"
     sess.commit()
     # addstuff(sync_client.Session, nr)
@@ -339,8 +339,9 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, serve
 
     # a seperate run for the third client should now fetch all other's a's
     with multiprocessing.Pool() as pool:
-        for id in [3, 5]:
-            res = pool.apply(push_only, [id])
+        pool.map(push_only, [3, 5])
+        # for id in [3, 5]:
+        #     res = pool.apply(push_only, [id])
 
 
 @pytest.mark.asyncio

@@ -458,6 +458,10 @@ class Operation(Base):
                 # using dbsync
                 # raise OperationError(
                 #     "the referenced object doesn't exist in database", operation)
+                # addendum:
+                # this can happen tracking of an object has been suppressed and
+                # later been activated during a 'u' operation,
+                # so we keep this logic
                 logger.warning(
                     "The referenced object doesn't exist in database. "
                     "Node %s. Operation %s",
