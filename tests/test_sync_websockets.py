@@ -24,7 +24,8 @@ from dbsync.socketserver import Connection
 from tests.models_websockets import SERVER_URL, addstuff, changestuff, A, B, datapath, deletestuff
 from .models_websockets import PORT
 from .server_setup import sync_server, server_session, server_db
-from .client_setup import sync_client, client_session, sync_client_registered, client_db, create_sync_client_registered
+from .client_setup import sync_client, client_session, sync_client_registered, client_db, create_sync_client_registered, \
+    create_client_session
 
 
 @SyncServer.handler("/counter")
@@ -355,10 +356,14 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, serve
         #     res = pool.apply(push_only, [id])
 
     # check if the post fetched records are here
-    for id in ids2 + [2]:
+    # check for downloaded A's
+    for id in ids2:
+        client_session = create_client_session(id)
         keys = ["a1", "a2", "a3", "a5"]
-        for k in keys:
-            a = server_session.query(A).filter(and_(A.key == k, A.pid == str(id))).one()
+        for pid in ids1:
+            for k in keys:
+                a = client_session.query(A).filter(and_(A.key == k, A.pid == str(pid))).one()
+
 
 @pytest.mark.asyncio
 async def test_push_and_change_with_multiple_clients_sequential(sync_server, server_session, client_session):
@@ -366,7 +371,7 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
     calls push_and_change_in_process in sequential order, deterministic
     """
     ids = [1, 2, 3, 4]
-    ids2 = [1,2,3,4]
+    ids2 = [4]  # in the seuential case the last client gets all other clients' items
 
     try:
         with multiprocessing.Pool() as pool:
@@ -376,11 +381,14 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
     except PullSuggested as ex:
         raise
 
-    # check for uploaded A's
+    # check for downloaded A's
     for id in ids2:
+        client_session = create_client_session(id)
         keys = ["a1", "a2", "a3", "a5"]
-        for k in keys:
-            a = server_session.query(A).filter(and_(A.key == k, A.pid == str(id))).one()
+        for pid in ids:
+            for k in keys:
+                a = client_session.query(A).filter(and_(A.key == k, A.pid == str(pid))).one()
+
 
 def test_subquery(sync_client, client_session):
     addstuff(sync_client.Session)

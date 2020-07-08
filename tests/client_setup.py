@@ -61,7 +61,7 @@ def sync_client_registered() -> SyncClient:
 
 
 def create_client_session(pid: int):
-    dbname = client_db(0)
+    dbname = client_db(pid)
     engine_client = create_engine(f"sqlite:///{dbname}")
     Session = sessionmaker(engine_client)
     res = Session()
