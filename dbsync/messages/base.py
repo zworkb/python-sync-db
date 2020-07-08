@@ -91,7 +91,14 @@ class MessageQuery(object):
             return self
         return MessageQuery(
             self.target,
-            dict(self.payload, **{self.target: list(filter(predicate, to_filter))}))
+            dict(
+                self.payload,
+                **{
+                    self.target: list(
+                        filter(predicate, to_filter))
+                }
+            )
+        )
 
     def __iter__(self):
         """Yields objects mapped to their original type (*target*)."""

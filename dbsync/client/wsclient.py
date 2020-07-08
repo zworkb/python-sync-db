@@ -113,12 +113,10 @@ class SyncClient(GenericWSClient):
         await extension_field.send_payload_fn(obj, fieldname, self.websocket, session)
 
     async def run_push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
-        # breakpoint()
         new_version_id: Optional[int]
         if not session:
             session = self.Session()
 
-        # breakpoint()
         message = self.create_push_message(session=session)
 
         logger.info(f"number of operations: {len(message.operations)}")
@@ -197,6 +195,7 @@ class SyncClient(GenericWSClient):
         data = request_message.to_json()
         data.update({'extra_data': extra_data or {}})
         msg = json.dumps(data,  cls=SyncdbJSONEncoder)
+        logger.info("requesting PullMessage")
         await self.websocket.send(msg)
 
         response_str = await self.websocket.recv()
@@ -204,6 +203,7 @@ class SyncClient(GenericWSClient):
         message = None
         try:
             message = PullMessage(response)
+            logger.info(f"got PullMessage: {message}")
         except KeyError:
             if monitor:
                 monitor({
@@ -219,8 +219,8 @@ class SyncClient(GenericWSClient):
                 'status': "merging",
                 'operations': len(message.operations)})
 
-
-        merge(message, include_extensions=include_extensions)  #TODO: request_payload etc.
+        logger.info("merging PullMessage...")
+        await merge(message, include_extensions=include_extensions)  #TODO: request_payload etc.
         if monitor:
             monitor({'status': "done"})
         # return the response for the programmer to do what she wants
@@ -231,6 +231,10 @@ class SyncClient(GenericWSClient):
         """
 
         XXX: implement a more sophisticated retry strategy (random delay, longer delay schedule)
+        currently we try 5 times:
+            push -> if PullSuggested is risen -> retry
+            normally 2 tries should be sufficient, but when multiple parallel clients are syncing, it can need mode
+            tries because of overlapping sync ops
         """
         tries = 5
         for _round in range(tries):
@@ -240,18 +244,12 @@ class SyncClient(GenericWSClient):
 
             except (SerializationError, PullSuggested) as ex:
                 try:
-                    # raise
                     logger.info(f"-- round {_round} for {id}: pull suggested: try pull")
                     await self.connect_async(method=self.run_pull, path="pull")
                     logger.info(f"-- round {_round}: pull successful")
                 except UniqueConstraintError as e:
-                    # breakpoint()
                     raise
-                    for model, pk, columns in e.entries:
-                        pass  # TODO: handle exception
                 except Exception as ex:
-                    # breakpoint()
                     raise
             except Exception as ex:
-                # breakpoint()
                 raise

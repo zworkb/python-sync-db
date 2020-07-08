@@ -248,6 +248,7 @@ async def merge(pull_message, session=None):
     latest_version=get_latest_version_id(session=session)
     logger.info(f"latest version after all {latest_version}/{pull_version}")
 
+    session.commit()
 
 class BadResponseError(Exception):
     pass

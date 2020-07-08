@@ -242,8 +242,8 @@ def before_a_delete(session: Session, obj:A):
 
 def before_a_tracking(session: Session, command: str, obj:SQLClass):
     print(f"------      before tracking {command} on {obj.key}/{obj.name}")
-    if obj.name == "donttrack":
-        raise SkipOperation
+    # if "dontsync" in obj.name:
+    #     raise SkipOperation
 
 
 extend_model(

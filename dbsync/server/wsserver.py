@@ -109,16 +109,16 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
                     # if the op has been skipped, it wont be appended for post_operation handling
                     post_operations.append((op, obj))
 
-                resp = dict(
-                    type="info",
-                    op=dict(
-                        row_id=op.row_id,
-                        version=op.version,
-                        command=op.command,
-                        content_type_id=op.content_type_id,
+                    resp = dict(
+                        type="info",
+                        op=dict(
+                            row_id=op.row_id,
+                            version=op.version,
+                            command=op.command,
+                            content_type_id=op.content_type_id,
+                        )
                     )
-                )
-                await connection.socket.send(json.dumps(resp))
+                    await connection.socket.send(json.dumps(resp))
 
         except OperationError as e:
             logger.exception("Couldn't perform operation in push from node %s.",
@@ -131,7 +131,8 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
         session.add(version)
 
         # IV) insert the operations, discarding the 'order' column
-        for op in sorted(operations, key=attr('order')):
+        accomplished_operations = [op for (op, obj) in post_operations]
+        for op in sorted(accomplished_operations, key=attr('order')):
             new_op = Operation()
             for k in [k for k in properties_dict(op) if k != 'order']:
                 setattr(new_op, k, getattr(op, k))
@@ -154,6 +155,8 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
             )
         ))
         return {'new_version_id': version.version_id}
+
+    # session.commit()
 
 
 @SyncServer.handler("/pull")

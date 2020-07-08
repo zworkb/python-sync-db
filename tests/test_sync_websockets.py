@@ -9,6 +9,8 @@ import time
 import pytest
 import sqlalchemy
 import websockets
+from sqlalchemy import and_
+
 from dbsync import models, core, wscommon
 from dbsync.client import PushRejected, PullSuggested
 from dbsync.client.wsclient import SyncClient
@@ -283,6 +285,9 @@ def synchronize_in_process(nr: int):
 
 @pytest.mark.asyncio
 async def test_push_with_multiple_clients_parallel(sync_server, sync_client_registered, server_session, client_session):
+    """
+    create 5 As and 2 Bs and sync them, nothing more
+    """
     addstuff(sync_client_registered.Session)
     ids = [1, 2, 3]
     with multiprocessing.Pool() as pool:
@@ -292,8 +297,12 @@ async def test_push_with_multiple_clients_parallel(sync_server, sync_client_regi
 
 @pytest.mark.asyncio
 async def test_push_with_multiple_clients_sequential(sync_server, sync_client_registered, server_session, client_session):
+    """
+    create 5 As and 2 Bs and sync them, nothing more
+    """
     addstuff(sync_client_registered.Session)
     ids = [1, 2, 3]
+    # ids = [1]
     with multiprocessing.Pool() as pool:
         for id in ids:
             res = pool.apply(synchronize_in_process, [id])
@@ -328,28 +337,36 @@ def push_and_change_in_process(nr: int):
 @pytest.mark.asyncio
 async def test_push_and_change_with_multiple_clients_parallel(sync_server, server_session, client_session):
     """
-    calls push_and_change_in_process in parallel
+    calls push_and_change_in_process in parallel, a4 is not pushed
     """
 
+    ids1 = [2, 3, 4, 5, 6, 7]
+    ids2 = [3, 5]
     try:
         with multiprocessing.Pool() as pool:
-            pool.map(push_and_change_in_process, [2, 3, 4, 5, 6, 7])
+            pool.map(push_and_change_in_process, ids1)
     except PullSuggested as ex:
         raise
 
     # a seperate run for the third client should now fetch all other's a's
     with multiprocessing.Pool() as pool:
-        pool.map(push_only, [3, 5])
+        pool.map(push_only, ids2)
         # for id in [3, 5]:
         #     res = pool.apply(push_only, [id])
 
+    # check if the post fetched records are here
+    for id in ids2 + [2]:
+        keys = ["a1", "a2", "a3", "a5"]
+        for k in keys:
+            a = server_session.query(A).filter(and_(A.key == k, A.pid == str(id))).one()
 
 @pytest.mark.asyncio
 async def test_push_and_change_with_multiple_clients_sequential(sync_server, server_session, client_session):
     """
     calls push_and_change_in_process in sequential order, deterministic
     """
-    ids = [1, 2, 3]
+    ids = [1, 2, 3, 4]
+    ids2 = [1,2,3,4]
 
     try:
         with multiprocessing.Pool() as pool:
@@ -359,7 +376,11 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
     except PullSuggested as ex:
         raise
 
-    # XXX: check for downloaded a's and b's
+    # check for uploaded A's
+    for id in ids2:
+        keys = ["a1", "a2", "a3", "a5"]
+        for k in keys:
+            a = server_session.query(A).filter(and_(A.key == k, A.pid == str(id))).one()
 
 def test_subquery(sync_client, client_session):
     addstuff(sync_client.Session)

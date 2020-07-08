@@ -15,7 +15,6 @@ try:
 except ImportError:
     from typing import _Protocol as Protocol
 
-
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table
 from sqlalchemy.orm import relationship, backref, validates, Session, Mapper
 from sqlalchemy.ext.declarative import declarative_base
@@ -27,12 +26,10 @@ from dbsync.lang import *
 from dbsync.utils import get_pk, query_model, properties_dict
 from dbsync.logs import get_logger
 
-
 logger = get_logger(__name__)
 
 
 class SQLClass(Protocol):
-
     """duck typing for sqlalchemy content class"""
     __table__: Table
     __tablename__: str
@@ -41,6 +38,7 @@ class SQLClass(Protocol):
 
     mapped_table: Union[Table, Join]
     primary_key: Tuple[Column, ...]
+
 
 # Extensions Stuff
 
@@ -78,9 +76,11 @@ class ExtensionField:
     arguments: the first is the object in the previous state, the
     second is the object in the current state."""
 
-    receive_payload_fn: Optional[Callable[["Operation", SQLClass, str, WebSocketServerProtocol, Session], Coroutine[Any, Any, None]]] = None
+    receive_payload_fn: Optional[
+        Callable[["Operation", SQLClass, str, WebSocketServerProtocol, Session], Coroutine[Any, Any, None]]] = None
     """is called on server side to request payload from the client side"""
-    send_payload_fn: Optional[Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
+    send_payload_fn: Optional[
+        Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
     """is called on client side as to accept the request from server side and send over the payload"""
 
     def __post_init__(self):
@@ -142,13 +142,13 @@ def call_before_tracking_fn(session, command, obj):
 
 def add_field_extension(model: DeclarativeMeta, fieldname: str, extension_field: ExtensionField):
     assert inspect.isclass(model), "model must be a mapped class"
-    assert isinstance(fieldname, str) and bool(fieldname),\
+    assert isinstance(fieldname, str) and bool(fieldname), \
         "field name must be a non-empty string"
 
     if extension_field.loadfn or extension_field.savefn:
-        assert not hasattr(model, fieldname),\
-            "the model {0} already has the attribute {1}".\
-            format(model.__name__, fieldname)
+        assert not hasattr(model, fieldname), \
+            "the model {0} already has the attribute {1}". \
+                format(model.__name__, fieldname)
     extension: Extension = get_model_extension_for_class(model)
     if not extension:
         extension = Extension()
@@ -237,7 +237,6 @@ def call_handlers_for_extension(operation: "Operation", obj: SQLClass, session: 
             extension.before_operation_fn(obj, session)
 
 
-
 async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
                                          websocket: WebSocketCommonProtocol, session: Session):
     """
@@ -291,6 +290,7 @@ class PrefixTables(DeclarativeMeta):
             cls.__tablename__ = dict_['__tablename__'] = tablename_prefix + tn
         return super(PrefixTables, cls).__init__(classname, bases, dict_)
 
+
 Base = declarative_base(metaclass=PrefixTables)
 
 
@@ -304,7 +304,7 @@ class ContentType(Base):
     model_name = Column(String(500))
 
     def __repr__(self):
-        return "<ContentType id: {0}, table_name: {1}, model_name: {2}>".\
+        return "<ContentType id: {0}, table_name: {1}, model_name: {2}>". \
             format(self.content_type_id, self.table_name, self.model_name)
 
 
@@ -326,8 +326,8 @@ class Node(Base):
         super(Node, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return "<Node node_id: {0}, registered: {1}, "\
-            "registry_user_id: {2}, secret: {3}>".\
+        return "<Node node_id: {0}, registered: {1}, " \
+               "registry_user_id: {2}, secret: {3}>". \
             format(self.node_id,
                    self.registered,
                    self.registry_user_id,
@@ -351,7 +351,7 @@ class Version(Base):
     node = relationship(Node)
 
     def __repr__(self):
-        return "<Version version_id: {0}, created: {1}>".\
+        return "<Version version_id: {0}, created: {1}>". \
             format(self.version_id, self.created)
 
 
@@ -382,7 +382,7 @@ class Operation(Base):
         ForeignKey(Version.__tablename__ + ".version_id"),
         nullable=True)
     content_type_id = Column(BigInteger)
-    tracked_model: DeclarativeMeta = None # to be injected
+    tracked_model: DeclarativeMeta = None  # to be injected
     command = Column(String(1))
     command_options = ('i', 'u', 'd')
     order = Column(Integer, primary_key=True)
@@ -395,7 +395,7 @@ class Operation(Base):
         return command
 
     def __repr__(self):
-        return "<Operation row_id: {0}, model: {1}, command: {2}>".\
+        return "<Operation row_id: {0}, model: {1}, command: {2}>". \
             format(self.row_id, self.tracked_model, self.command)
 
     def references(self, obj):
@@ -404,7 +404,7 @@ class Operation(Base):
             return False
         model = self.tracked_model
         if model is None:
-            return False # operation doesn't even refer to a tracked model
+            return False  # operation doesn't even refer to a tracked model
         return model is type(obj)
 
     def perform(operation, container, session, node_id=None):
@@ -426,9 +426,9 @@ class Operation(Base):
             raise OperationError("no content type for this operation", operation)
 
         if operation.command == 'i':
-            obj = query_model(session, model).\
+            obj = query_model(session, model). \
                 filter(getattr(model, get_pk(model)) == operation.row_id).first()
-            pull_obj = container.query(model).\
+            pull_obj = container.query(model). \
                 filter(attr('__pk__') == operation.row_id).first()
             if pull_obj is None:
                 raise OperationError(
@@ -442,15 +442,15 @@ class Operation(Base):
                     logger.warning("insert attempted when an identical object "
                                    "already existed in local database: "
                                    "model {0} pk {1}".format(model.__name__,
-                                                              operation.row_id))
+                                                             operation.row_id))
                 else:
                     raise OperationError(
                         "insert attempted when the object already existed: "
                         "model {0} pk {1}".format(model.__name__,
-                                                   operation.row_id))
+                                                  operation.row_id))
 
         elif operation.command == 'u':
-            obj = query_model(session, model).\
+            obj = query_model(session, model). \
                 filter(getattr(model, get_pk(model)) == operation.row_id).first()
             if obj is None:
                 # For now, the record will be created again, but is an
@@ -468,7 +468,7 @@ class Operation(Base):
                     node_id,
                     operation)
 
-            pull_obj = container.query(model).\
+            pull_obj = container.query(model). \
                 filter(attr('__pk__') == operation.row_id).first()
             if pull_obj is None:
                 raise OperationError(
@@ -476,7 +476,7 @@ class Operation(Base):
             session.merge(pull_obj)
 
         elif operation.command == 'd':
-            obj = query_model(session, model, only_pk=True).\
+            obj = query_model(session, model, only_pk=True). \
                 filter(getattr(model, get_pk(model)) == operation.row_id).first()
             if obj is None:
                 # The object is already deleted in the server
@@ -520,10 +520,9 @@ class Operation(Base):
             elif self.command == 'd' and extension.after_delete_fn:
                 extension.after_delete_fn(session, obj)
 
-
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
-                      websocket: Optional[WebSocketCommonProtocol] = None
-                      ) -> Optional[SQLClass]:
+                            websocket: Optional[WebSocketCommonProtocol] = None
+                            ) -> Optional[SQLClass]:
         """
         Performs *operation*, looking for required data in
         *container*, and using *session* to perform it.
@@ -537,6 +536,7 @@ class Operation(Base):
         If at any moment this operation fails for predictable causes,
         it will raise an *OperationError*.
         """
+        from dbsync.core import mode
         model: DeclarativeMeta = operation.tracked_model
         res: Optional[SQLClass] = None
         if model is None:
@@ -544,18 +544,26 @@ class Operation(Base):
 
         if operation.command == 'i':
             # check if the given object is already in the database
-            obj = query_model(session, model).\
+            obj = query_model(session, model). \
                 filter(getattr(model, get_pk(model)) == operation.row_id).first()
 
             # retrieve the object from the PullMessage
-            qu = container.query(model).\
+            qu = container.query(model). \
                 filter(attr('__pk__') == operation.row_id)
             # breakpoint()
             pull_obj = qu.first()
             # pull_obj._session = session
             if pull_obj is None:
+                qm = query_model(session, model)
+                pk = get_pk(model)
+                pkv = getattr(model, pk)
+                obj = qm.filter(pkv == operation.row_id).first()
+
+                # retrieve the object from the PullMessage
+                qu = container.query(model). \
+                    filter(attr('__pk__') == operation.row_id)
                 raise OperationError(
-                    "no object backing the operation in container", operation)
+                    f"no object backing the operation in container on {mode}", operation)
             if obj is None:
                 logger.info(f"insert: calling request_payloads_for_extension for: {pull_obj.id}")
                 try:
@@ -573,15 +581,15 @@ class Operation(Base):
                     logger.warning("insert attempted when an identical object "
                                    "already existed in local database: "
                                    "model {0} pk {1}".format(model.__name__,
-                                                              operation.row_id))
+                                                             operation.row_id))
                 else:
                     raise OperationError(
                         "insert attempted when the object already existed: "
                         "model {0} pk {1}".format(model.__name__,
-                                                   operation.row_id))
+                                                  operation.row_id))
 
         elif operation.command == 'u':
-            obj = query_model(session, model).\
+            obj = query_model(session, model). \
                 filter(getattr(model, get_pk(model)) == operation.row_id).one_or_none()
             if obj is not None:
                 logger.info(f"update: calling request_payloads_for_extension for: {obj.id}")
@@ -601,7 +609,7 @@ class Operation(Base):
                     operation)
 
             # get new object from the PushMessage
-            pull_obj = container.query(model).\
+            pull_obj = container.query(model). \
                 filter(attr('__pk__') == operation.row_id).first()
             if pull_obj is None:
                 raise OperationError(
@@ -618,7 +626,7 @@ class Operation(Base):
 
         elif operation.command == 'd':
             try:
-                obj = query_model(session, model, only_pk=True).\
+                obj = query_model(session, model, only_pk=True). \
                     filter(getattr(model, get_pk(model)) == operation.row_id).first()
             except NoSuchColumnError as ex:
                 # for joins only_pk doesnt seem to work
@@ -649,6 +657,5 @@ class Operation(Base):
             raise OperationError(
                 "the operation doesn't specify a valid command ('i', 'u', 'd')",
                 operation)
-
 
         return res
