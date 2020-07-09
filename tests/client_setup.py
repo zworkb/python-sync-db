@@ -24,9 +24,10 @@ def create_sync_client(pid: int = 0, reset_db=True) -> SyncClient:
     dbname = client_db(pid)
     if reset_db:
         try:
+            print(f"deleting db file {dbname}")
             os.remove(dbname)
         except FileNotFoundError:
-            print(f"ignore non existing file {dbname}")
+            print(f"ignore deleting non existing file {dbname}")
 
     engine_client = create_engine(f"sqlite:///{dbname}")
     Base.metadata.create_all(engine_client)

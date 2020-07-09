@@ -125,11 +125,11 @@ async def test_tracking_add_change(sync_server, sync_client, server_session, cli
 
     ops = client_session.query(Operation).all()
 
-    assert len(ops) == 12
+    assert len(ops) == 13
 
 
 # @pytest.mark.asyncio
-@pytest.mark.parametrize("compress_info", [(False, 12), (True, 7)])
+@pytest.mark.parametrize("compress_info", [(False, 13), (True, 7)])
 def test_push_message(sync_client, client_session, compress_info):
     do_compress, N = compress_info
     addstuff(sync_client.Session)
@@ -204,6 +204,10 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
 
     As_client = client_session.query(A).all()
     assert len(As_client) == 5
+    a5_client: A = client_session.query(A).filter(A.key == "a5").one()
+    a5_client.comment = "lets update now"
+    client_session.commit()
+    await sync_client_registered.synchronize()
 
     # because one A should not be synced len is one less
     As_server = server_session.query(A).all()
@@ -237,6 +241,10 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     # add new a7, and as long name = "donttrack" it wont be synced
     client_session.add(A(name="donttrack", key="a7"))
     client_session.commit()
+    # there should be no operation be triggered
+    a7_client = client_session.query(A).filter(A.key == "a7").one_or_none()
+    op7 = client_session.query(Operation).filter(Operation.row_id == a7_client.id).one_or_none()
+    assert op7 is None
     await sync_client_registered.synchronize()
 
     a7_server = server_session.query(A).filter(A.key == "a7").one_or_none()
@@ -246,6 +254,8 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     a7_client = client_session.query(A).filter(A.key == "a7").one()
     a7_client.name = "a7, lets sync now"
     client_session.commit()
+    # now we should have a tracked op
+    op7 = client_session.query(Operation).filter(Operation.row_id == a7_client.id).one()
 
     await sync_client_registered.synchronize()
     a7_server = server_session.query(A).filter(A.key == "a7").one_or_none()
@@ -359,7 +369,7 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, serve
     # check for downloaded A's
     for id in ids2:
         client_session = create_client_session(id)
-        keys = ["a1", "a2", "a3", "a5"]
+        keys = ["a1", "a2", "a3"]
         for pid in ids1:
             for k in keys:
                 a = client_session.query(A).filter(and_(A.key == k, A.pid == str(pid))).one()
