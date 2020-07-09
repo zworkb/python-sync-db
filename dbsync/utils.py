@@ -5,6 +5,10 @@
 
 import random
 import inspect
+from typing import List, Optional, Tuple, Dict, Any
+
+from sqlalchemy import Table
+from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.orm import (
     object_mapper,
     class_mapper,
@@ -12,14 +16,14 @@ from sqlalchemy.orm import (
     noload,
     defer,
     instrumentation,
-    state)
+    state, Session, Query)
 
 
 def generate_secret(length=128):
-    chars = "0123456789"\
-        "abcdefghijklmnopqrstuvwxyz"\
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"\
-        ".,_-+*@:;[](){}~!?|<>=/\&$#"
+    chars = "0123456789" \
+            "abcdefghijklmnopqrstuvwxyz" \
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
+            ".,_-+*@:;[](){}~!?|<>=/\&$#"
     return "".join(random.choice(chars) for _ in range(length))
 
 
@@ -34,7 +38,7 @@ def properties_dict(sa_object):
                 if isinstance(prop, ColumnProperty))
 
 
-def column_properties(sa_variant):
+def column_properties(sa_variant: "SQLClass"):
     "Returns a list of column-properties."
     mapper = class_mapper(sa_variant) if inspect.isclass(sa_variant) \
         else object_mapper(sa_variant)
@@ -42,7 +46,7 @@ def column_properties(sa_variant):
             if isinstance(prop, ColumnProperty)]
 
 
-def types_dict(sa_class):
+def types_dict(sa_class: DeclarativeMeta) -> "SQLClass":
     """
     Returns a dictionary of column-properties mapped to their
     SQLAlchemy types for the given mapped class.
@@ -53,7 +57,7 @@ def types_dict(sa_class):
                 if isinstance(prop, ColumnProperty))
 
 
-def construct_bare(class_):
+def construct_bare(class_: DeclarativeMeta) -> "SQLClass":
     """
     Returns an object of type *class_*, without invoking the class'
     constructor.
@@ -64,7 +68,7 @@ def construct_bare(class_):
     return obj
 
 
-def object_from_dict(class_, dict_):
+def object_from_dict(class_: DeclarativeMeta, dict_: Dict[str, Any]) -> "SQLClass":
     "Returns an object from a dictionary of attributes."
     obj = construct_bare(class_)
     for k, v in list(dict_.items()):
@@ -72,19 +76,19 @@ def object_from_dict(class_, dict_):
     return obj
 
 
-def copy(obj):
+def copy(obj: "SQLClass") -> "SQLClass":
     "Returns a copy of the given object, not linked to a session."
     return object_from_dict(type(obj), properties_dict(obj))
 
 
-def get_pk(sa_variant) -> str:
+def get_pk(sa_variant: "SQLClass") -> str:
     "Returns the primary key name for the given mapped class or object."
     mapper = class_mapper(sa_variant) if inspect.isclass(sa_variant) \
         else object_mapper(sa_variant)
     return mapper.primary_key[0].key
 
 
-def parent_references(sa_object, models):
+def parent_references(sa_object: "SQLClass", models: List[DeclarativeMeta]) -> List[Tuple[DeclarativeMeta, str]]:
     """
     Returns a list of pairs (*sa_class*, *pk*) that reference all the
     parent objects of *sa_object*.
@@ -92,17 +96,20 @@ def parent_references(sa_object, models):
     mapper = object_mapper(sa_object)
     references = [(getattr(sa_object, k.parent.name), k.column.table)
                   for k in mapper.mapped_table.foreign_keys]
-    def get_model(table):
+
+    def get_model(table: Table) -> Optional[DeclarativeMeta]:
         for m in models:
             if class_mapper(m).mapped_table == table:
                 return m
         return None
+
     return [(m, pk)
             for m, pk in ((get_model(table), v) for v, table in references)
             if m is not None]
 
 
-def parent_objects(sa_object, models, session, only_pk=False):
+def parent_objects(sa_object: "SQLClass", models: List[DeclarativeMeta], session: Session,
+                   only_pk=False) -> "List[SQLClass]":
     """
     Returns all the parent objects the given *sa_object* points to
     (through foreign keys in *sa_object*).
@@ -111,12 +118,12 @@ def parent_objects(sa_object, models, session, only_pk=False):
 
     *session* must be a valid SA session instance.
     """
-    return [obj for obj in (query_model(session, m, only_pk=only_pk).\
-                       filter_by(**{get_pk(m): val}).first()
-                   for m, val in parent_references(sa_object, models)) if obj is not None]
+    return [obj for obj in (query_model(session, m, only_pk=only_pk). \
+                                filter_by(**{get_pk(m): val}).first()
+                            for m, val in parent_references(sa_object, models)) if obj is not None]
 
 
-def query_model(session, sa_class, only_pk=False):
+def query_model(session: Session, sa_class: DeclarativeMeta, only_pk=False) -> Query:
     """
     Returns a query for *sa_class* that doesn't load any relationship
     attribute.
@@ -147,4 +154,3 @@ class EventRegister(object):
         if listener not in self._listeners:
             self._listeners.append(listener)
         return listener
-

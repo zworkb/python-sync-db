@@ -554,14 +554,6 @@ class Operation(Base):
             pull_obj = qu.first()
             # pull_obj._session = session
             if pull_obj is None:
-                qm = query_model(session, model)
-                pk = get_pk(model)
-                pkv = getattr(model, pk)
-                obj = qm.filter(pkv == operation.row_id).first()
-
-                # retrieve the object from the PullMessage
-                qu = container.query(model). \
-                    filter(attr('__pk__') == operation.row_id)
                 raise OperationError(
                     f"no object backing the operation in container on {mode}", operation)
             if obj is None:

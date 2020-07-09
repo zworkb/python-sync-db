@@ -74,6 +74,7 @@ class A(Base):
 
     __str__ = __repr__
 
+
 @client.track("push")
 class B(Base):
     __tablename__ = "test_b"
@@ -240,10 +241,13 @@ def before_a_delete(session: Session, obj:A):
         raise SkipOperation
 
 
-def before_a_tracking(session: Session, command: str, obj:SQLClass):
+def before_a_tracking(session: Session, command: str, obj: SQLClass):
     print(f"------      before tracking {command} on {obj.key}/{obj.name}")
-    # if "dontsync" in obj.name:
-    #     raise SkipOperation
+    if "donttrack" in obj.name:
+        raise SkipOperation
+
+    if obj.name == "a5 modified":
+        print(f"obj: syncing {obj}")
 
 
 extend_model(

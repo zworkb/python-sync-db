@@ -8,6 +8,8 @@ import warnings
 from collections import deque
 from typing import Optional, Callable, Deque, Union, List
 
+from sqlalchemy.ext.declarative import DeclarativeMeta
+
 from dbsync.core import SQLClass
 from sqlalchemy import event
 from sqlalchemy.engine import Connection
@@ -116,8 +118,7 @@ def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Opti
         return None
 
 
-
-def start_tracking(model, directions=("push", "pull")):
+def start_tracking(model: DeclarativeMeta, directions=("push", "pull")) -> DeclarativeMeta:
 
     if 'pull' in directions:
         core.pulled_models.add(model)
