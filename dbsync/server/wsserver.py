@@ -142,6 +142,10 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
 
         for op, obj in post_operations:
             op.call_after_operation_fn(session, obj)
+            from woodmaster.model.sql.model import WoodPile, Measurement
+            orphans = session.query(Measurement).filter(Measurement.woodpile_id == None).all()
+            print(f"orphans:{orphans}")
+
 
         for listener in after_push:
             listener(session, pushmsg)

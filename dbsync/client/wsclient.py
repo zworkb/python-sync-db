@@ -141,7 +141,7 @@ class SyncClient(GenericWSClient):
         new_version_id = None
         # accept incoming requests for payload data (optional)
         async for msg_ in self.websocket:
-            logger.info(f"client:{self.id} msg: {msg_}")
+            logger.debug(f"client:{self.id} msg: {msg_}")
             msg = json.loads(msg_)
             # logger.debug(f"msg: {msg}")
             if msg['type'] == "request_field_payload":
@@ -150,7 +150,7 @@ class SyncClient(GenericWSClient):
             elif msg['type'] == 'result':
                 new_version_id = msg['new_version_id']
             else:
-                logger.info(f"response from server:{msg}")
+                logger.debug(f"response from server:{msg}")
 
         # else:
         #     print("ENDE:")

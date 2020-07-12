@@ -586,7 +586,6 @@ class Operation(Base):
             if obj is not None:
                 logger.info(f"update: calling request_payloads_for_extension for: {obj.id}")
                 # breakpoint()
-                await request_payloads_for_extension(operation, obj, websocket, session)
             else:
                 # For now, the record will be created again, but is an
                 # error because nothing should be deleted without
@@ -609,6 +608,7 @@ class Operation(Base):
 
             try:
                 operation.call_before_operation_fn(session, pull_obj, obj)
+                await request_payloads_for_extension(operation, pull_obj, websocket, session)
                 session.merge(pull_obj)
                 res = pull_obj
             except SkipOperation as e:

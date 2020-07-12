@@ -139,7 +139,6 @@ class BaseMessage(object):
 
         def getm(k):
             res = synched_models.model_names.get(k, null_model).model
-            print(f"getm: {k} => {res}")
             return res
 
         payload_items = list(data['payload'].items())
