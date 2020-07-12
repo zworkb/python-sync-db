@@ -38,6 +38,7 @@ class SyncClient(GenericWSClient):
     engine: Optional[Engine] = None
     Session: Optional[sessionmaker] = None
     id: int = -1
+    elapsed_rounds=0
 
     def __post_init__(self):
         if not self.Session:
@@ -236,17 +237,19 @@ class SyncClient(GenericWSClient):
             normally 2 tries should be sufficient, but when multiple parallel clients are syncing, it can need mode
             tries because of overlapping sync ops
         """
-        tries = 5
+        tries = 15
         for _round in range(tries):
             try:
                 logger.info(f"-- round {_round} for {id}: try push")
                 await self.connect_async(method=self.run_push, path="push")
-
+                self.elapsed_rounds = _round
+                return _round
             except (SerializationError, PullSuggested) as ex:
                 try:
                     logger.info(f"-- round {_round} for {id}: pull suggested: try pull")
                     await self.connect_async(method=self.run_pull, path="pull")
-                    logger.info(f"-- round {_round}: pull successful")
+                    logger.info(f"************ round {_round}: pull successful")
+                    self.elapsed_rounds = _round
                 except UniqueConstraintError as e:
                     raise
                 except Exception as ex:

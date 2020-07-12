@@ -3,11 +3,14 @@ Operation compression, both in-memory and in-database.
 """
 
 import warnings
+from typing import List
+
+from sqlalchemy.orm import Query
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, query_model
 from dbsync import core
-from dbsync.models import Version, Operation
+from dbsync.models import Version, Operation, SQLClass
 from dbsync.logs import get_logger
 
 
@@ -56,7 +59,7 @@ def _assert_operation_sequence(seq, session=None):
 
 
 @core.session_committing
-def compress(session=None):
+def compress(session=None) -> List[Operation]:
     """
     Compresses unversioned operations in the database.
 
@@ -66,7 +69,7 @@ def compress(session=None):
     This procedure is called internally before the 'push' request
     happens, and before the local 'merge' happens.
     """
-    unversioned = session.query(Operation).\
+    unversioned: Query = session.query(Operation).\
         filter(Operation.version_id == None).order_by(Operation.order.desc())
     seqs = group_by(lambda op: (op.row_id, op.content_type_id), unversioned)
 

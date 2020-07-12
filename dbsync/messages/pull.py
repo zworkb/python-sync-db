@@ -178,6 +178,22 @@ class PullMessage(BaseMessage):
                 filter(Version.version_id > request.latest_version_id)
         required_objects = {}
         required_parents = {}
+
+        # TODO: since there can be really many versions here
+        # we should rebuild this part so that we make an aggregate query
+        # gettting all operations ordered by their version and by their permissions
+        # something like
+        # select * from
+        #     operation, version
+        # where
+        #     operation.version_id=version.id
+        #     and
+        #     version.version_id > request.latest_version_id
+        #     and
+        #     " one of the user's roles is in operation.allowed_users_and_roles "
+        # order by
+        #     operation.order
+
         for v in versions:
             self.versions.append(v)
             for op in v.operations:
