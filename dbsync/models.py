@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type
 from copy import deepcopy
 
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.exc import NoSuchColumnError
@@ -385,10 +386,11 @@ class Operation(Base):
     content_type_id = Column(BigInteger)
     tracked_model: DeclarativeMeta = None  # to be injected
     command = Column(String(1))
-    command_options = ('i', 'u', 'd')
     order = Column(Integer, primary_key=True)
-
     version = relationship(Version, backref=backref("operations", lazy="joined"))
+    allowed_roles_and_users = Column(JSONB)
+
+    command_options = ('i', 'u', 'd')
 
     @validates('command')
     def validate_command(self, key, command):

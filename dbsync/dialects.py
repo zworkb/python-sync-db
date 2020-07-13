@@ -49,6 +49,17 @@ class GUID(TypeDecorator):
             return uuid.UUID(value)
 
 
+########################################
+# JSONB support, faking it in SQLite
+########################################
+# evil hack: force sqlite to swallow JSONB as JSON
+# We want to have it because we can query JSONB fields with GIN indices
+
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+SQLiteTypeCompiler.visit_JSONB = SQLiteTypeCompiler.visit_JSON
+
+
 def begin_transaction(session):
     """
     Returns information of the state the database was on before the
