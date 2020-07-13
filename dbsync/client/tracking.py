@@ -71,11 +71,11 @@ def make_listener(command: str) -> Callable[[Mapper, Connection, SQLClass], Opti
     return listener
 
 
-def add_operation(command: str, target: SQLClass, session: Optional[Session]) -> Optional[Operation]:
-    return _add_operation(command, target.__mapper__, target, session)
+def add_operation(command: str, target: SQLClass, session: Optional[Session], force = False) -> Optional[Operation]:
+    return _add_operation(command, target.__mapper__, target, session, force=force)
 
 
-def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Optional[Session] = None) -> Optional[Operation]:
+def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Optional[Session] = None, force = False) -> Optional[Operation]:
     if session is None:
         session = core.SessionClass.object_session(target)
     if getattr(session,
@@ -88,7 +88,7 @@ def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Opti
                        "aborting listener to '{0}' command".format(command))
         return None
 
-    if command == 'u' and not session.\
+    if command == 'u' and not force and not session.\
             is_modified(target, include_collections=False):
         return None
 

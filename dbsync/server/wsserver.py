@@ -99,15 +99,15 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
 
         # II) perform the operations
         operations = [o for o in pushmsg.operations if o.tracked_model is not None]
-        post_operations: List[Tuple[Operation, SQLClass]] = []
+        post_operations: List[Tuple[Operation, SQLClass, Optional[SQLClass]]] = []
         try:
             op: Operation
             for op in operations:
-                obj: Optional[SQLClass] = await op.perform_async(pushmsg, session, pushmsg.node_id, connection.socket)
+                (obj, old_obj) = await op.perform_async(pushmsg, session, pushmsg.node_id, connection.socket)
 
                 if obj:
                     # if the op has been skipped, it wont be appended for post_operation handling
-                    post_operations.append((op, obj))
+                    post_operations.append((op, obj, old_obj))
 
                     resp = dict(
                         type="info",
@@ -131,7 +131,7 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
         session.add(version)
 
         # IV) insert the operations, discarding the 'order' column
-        accomplished_operations = [op for (op, obj) in post_operations]
+        accomplished_operations = [op for (op, obj, old_obj) in post_operations]
         for op in sorted(accomplished_operations, key=attr('order')):
             new_op = Operation()
             for k in [k for k in properties_dict(op) if k != 'order']:
@@ -140,11 +140,11 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
             new_op.version = version
             session.flush()
 
-        for op, obj in post_operations:
+        for op, obj, old_obj in post_operations:
             op.call_after_operation_fn(session, obj)
-            from woodmaster.model.sql.model import WoodPile, Measurement
-            orphans = session.query(Measurement).filter(Measurement.woodpile_id == None).all()
-            print(f"orphans:{orphans}")
+            # from woodmaster.model.sql.model import WoodPile, Measurement
+            # orphans = session.query(Measurement).filter(Measurement.woodpile_id == None).all()
+            # print(f"orphans:{orphans}")
 
 
         for listener in after_push:

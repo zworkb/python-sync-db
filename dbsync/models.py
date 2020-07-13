@@ -5,6 +5,7 @@ import inspect
 import json
 from dataclasses import dataclass, field
 from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type
+from copy import deepcopy
 
 from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
@@ -23,7 +24,7 @@ from websockets import WebSocketServerProtocol, WebSocketCommonProtocol
 
 from dbsync.dialects import GUID
 from dbsync.lang import *
-from dbsync.utils import get_pk, query_model, properties_dict
+from dbsync.utils import get_pk, query_model, properties_dict, copy
 from dbsync.logs import get_logger
 
 logger = get_logger(__name__)
@@ -522,7 +523,7 @@ class Operation(Base):
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
                             websocket: Optional[WebSocketCommonProtocol] = None
-                            ) -> Optional[SQLClass]:
+                            ) -> (Optional[SQLClass], Optional[SQLClass]):
         """
         Performs *operation*, looking for required data in
         *container*, and using *session* to perform it.
@@ -538,7 +539,7 @@ class Operation(Base):
         """
         from dbsync.core import mode
         model: DeclarativeMeta = operation.tracked_model
-        res: Optional[SQLClass] = None
+        res: Tuple[Optional[SQLClass], Optional[SQLClass]] = (None, None)
         if model is None:
             raise OperationError("no content type for this operation", operation)
 
@@ -562,7 +563,7 @@ class Operation(Base):
                     operation.call_before_operation_fn(session, pull_obj)
                     await request_payloads_for_extension(operation, pull_obj, websocket, session)
                     session.add(pull_obj)
-                    res = pull_obj
+                    res = pull_obj, None
                 except SkipOperation as e:
                     logger.info(f"operation {operation} skipped")
                 # operation.call_after_operation_fn(pull_obj, session)
@@ -609,8 +610,9 @@ class Operation(Base):
             try:
                 operation.call_before_operation_fn(session, pull_obj, obj)
                 await request_payloads_for_extension(operation, pull_obj, websocket, session)
+                old_obj = deepcopy(obj)
                 session.merge(pull_obj)
-                res = pull_obj
+                res = pull_obj, old_obj
             except SkipOperation as e:
                 logger.info(f"operation {operation} skipped")
 
@@ -641,7 +643,7 @@ class Operation(Base):
                     # breakpoint()
                     operation.call_before_operation_fn(session, obj)
                     session.delete(obj)
-                    res = obj
+                    res = obj, None
                 except SkipOperation as e:
                     logger.info(f"operation {operation} skipped")
 
