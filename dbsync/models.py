@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type
 from copy import deepcopy
 
+import sqlalchemy
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
@@ -42,7 +43,7 @@ class SQLClass(Protocol):
     primary_key: Tuple[Column, ...]
 
 
-# Extensions Stuff
+# ExtensionRegistry Stuff
 
 
 @dataclass
@@ -79,7 +80,7 @@ class ExtensionField:
     second is the object in the current state."""
 
     receive_payload_fn: Optional[
-        Callable[["Operation", SQLClass, str, WebSocketServerProtocol, Session], Coroutine[Any, Any, None]]] = None
+        Callable[["Operation", SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
     """is called on server side to request payload from the client side"""
     send_payload_fn: Optional[
         Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
@@ -126,17 +127,17 @@ class Extension:
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
 
-Extensions = Dict[
+ExtensionRegistry = Dict[
     str,
     Extension
 ]
 
-#: Extensions to tracked models.
-model_extensions: Extensions = {}
+#: ExtensionRegistry to tracked models.
+model_extension_registry: ExtensionRegistry = {}
 
 
 def call_before_tracking_fn(session, command, obj):
-    extension: Optional[Extension] = get_model_extension_for_obj(obj)
+    extension: Optional[Extension] = get_model_extensions_for_obj(obj)
     if extension:
         if extension.before_tracking_fn:
             extension.before_tracking_fn(session, command, obj)
@@ -151,42 +152,42 @@ def add_field_extension(model: DeclarativeMeta, fieldname: str, extension_field:
         assert not hasattr(model, fieldname), \
             "the model {0} already has the attribute {1}". \
                 format(model.__name__, fieldname)
-    extension: Extension = get_model_extension_for_class(model)
+    extension: Optional[Extension] = get_model_extensions_for_class(model)
     if not extension:
         extension = Extension()
 
     # type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
     extension.fields[fieldname] = extension_field
-    model_extensions[model.__name__] = extension
+    model_extension_registry[model.__name__] = extension
 
 
-def get_model_extension_for_obj(obj: SQLClass) -> Optional[Extension]:
-    ext: Extension = get_model_extension_for_class(type(obj))
+def get_model_extensions_for_obj(obj: SQLClass) -> Optional[Extension]:
+    ext: Extension = get_model_extensions_for_class(type(obj))
     return ext
 
 
-def get_model_extension_for_class(klass: DeclarativeMeta) -> Optional[Extension]:
-    ext: Extension = model_extensions.get(klass.__name__, None)
+def get_model_extensions_for_class(klass: DeclarativeMeta) -> Optional[Extension]:
+    ext: Extension = model_extension_registry.get(klass.__name__, None)
     return ext
 
 
 def extend_model(klass: DeclarativeMeta, **kw) -> None:
     name = klass.__name__
-    ext: Extension = model_extensions.get(name, None)
+    ext: Extension = model_extension_registry.get(name, None)
     if ext:
         ext.__dict__.update(**kw)
     else:
-        model_extensions[name] = Extension(**kw)
+        model_extension_registry[name] = Extension(**kw)
 
 
 def _has_extensions(obj: SQLClass) -> bool:
-    return bool(get_model_extension_for_obj(obj))
+    return bool(get_model_extensions_for_obj(obj))
 
 
 def _has_delete_functions(obj):
     ext: ExtensionField
 
-    extension: Extension = get_model_extension_for_obj(obj)
+    extension: Extension = get_model_extensions_for_obj(obj)
 
     if extension:
         return any(
@@ -202,7 +203,7 @@ def save_extensions(obj):
     object.
     """
     extfield: ExtensionField
-    extension: Extension = get_model_extension_for_obj(obj)
+    extension: Extension = get_model_extensions_for_obj(obj)
     if extension:
         for fieldname, extfield in list(extension.fields.items()):
             savefn = extfield.savefn
@@ -230,24 +231,13 @@ def create_field_request_message(obj: SQLClass, field: str):
     return json.dumps(res, cls=SyncdbJSONEncoder)
 
 
-def call_handlers_for_extension(operation: "Operation", obj: SQLClass, session: Session):
-    extfield: ExtensionField
-    extension: Extension = get_model_extension_for_obj(obj)
-
-    if extension:
-        if extension.before_operation_fn:
-            extension.before_operation_fn(obj, session)
-
-
 async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
                                          websocket: WebSocketCommonProtocol, session: Session):
     """
     requests payload data for a given object via a given websocket, invoked by perform_async()
     """
-    # breakpoint()
-    extension: Extension
     extfield: ExtensionField
-    extension: Extension = get_model_extension_for_obj(obj)
+    extension: Extension = get_model_extensions_for_obj(obj)
 
     if extension:
         for fieldname, extfield in list(extension.fields.items()):
@@ -261,7 +251,7 @@ async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
                     raise
 
 
-def delete_extensions(old_obj: SQLClass, new_obj: SQLClass):
+def delete_extensions(old_obj: SQLClass, new_obj: Optional[SQLClass]):
     """
     Executes the delete procedures for the extensions of the given
     object. *old_obj* is the object in the previous state, and
@@ -269,7 +259,7 @@ def delete_extensions(old_obj: SQLClass, new_obj: SQLClass):
     object was deleted).
     """
     extfield: ExtensionField
-    extension_fields = get_model_extension_for_obj(obj)
+    extension_fields = get_model_extensions_for_obj(new_obj)
     for fieldname, extfield in list(extension_fields.fields.items()):
         deletefn = extfield.deletefn
         if deletefn is not None:
@@ -293,7 +283,7 @@ class PrefixTables(DeclarativeMeta):
         return super(PrefixTables, cls).__init__(classname, bases, dict_)
 
 
-Base = declarative_base(metaclass=PrefixTables)
+Base: DeclarativeMeta = declarative_base(metaclass=PrefixTables)
 
 
 class ContentType(Base):
@@ -389,6 +379,12 @@ class Operation(Base):
     order = Column(Integer, primary_key=True)
     version = relationship(Version, backref=backref("operations", lazy="joined"))
     allowed_roles_and_users = Column(JSONB)
+    """
+    is a binary JSON (Fallback to normal JSON for SQLite) field that holds
+    an array of user ids to be allowed to pull that object
+    dbsync does not fill or test this field, this has to be accomplished
+    by extensions
+    """
 
     command_options = ('i', 'u', 'd')
 
@@ -500,7 +496,7 @@ class Operation(Base):
                 operation)
 
     def call_before_operation_fn(self, session: Session, obj: SQLClass, old_obj: Optional[SQLClass] = None):
-        extension: Extension = get_model_extension_for_obj(obj)
+        extension: Extension = get_model_extensions_for_obj(obj)
         if extension:
             if extension.before_operation_fn:
                 extension.before_operation_fn(session, self, obj, old_obj)
@@ -512,7 +508,7 @@ class Operation(Base):
                 extension.before_delete_fn(session, obj)
 
     def call_after_operation_fn(self, session: Session, obj: SQLClass):
-        extension: Extension = get_model_extension_for_obj(obj)
+        extension: Extension = get_model_extensions_for_obj(obj)
         if extension:
             if extension.after_operation_fn:
                 extension.after_operation_fn(session, self, obj)
@@ -640,7 +636,7 @@ class Operation(Base):
                     node_id,
                     operation)
             else:
-                extension: Extension = get_model_extension_for_obj(obj)
+                extension: Extension = get_model_extensions_for_obj(obj)
                 try:
                     # breakpoint()
                     operation.call_before_operation_fn(session, obj)

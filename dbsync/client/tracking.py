@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapper
 from sqlalchemy.orm.session import Session as GlobalSession, Session
 
 from dbsync import core
-from dbsync.models import Operation, Extension, get_model_extension_for_obj, SkipOperation, call_before_tracking_fn
+from dbsync.models import Operation, Extension, get_model_extensions_for_obj, SkipOperation, call_before_tracking_fn
 from dbsync.logs import get_logger
 from sqlalchemy.sql import Join
 

@@ -7,8 +7,8 @@ from typing import Dict, Any, Union, Set
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, properties_dict, construct_bare
-from dbsync.models import model_extensions, SQLClass, ExtensionField, Extension, get_model_extension_for_class, \
-    get_model_extension_for_obj
+from dbsync.models import SQLClass, ExtensionField, Extension, \
+    get_model_extensions_for_obj
 from dbsync.core import null_model, synched_models
 
 from dbsync import models
@@ -144,8 +144,8 @@ class BaseMessage(object):
         payload_items = list(data['payload'].items())
 
         kvms = [
-            (k_v[0], k_v[1], getm(k_v[0]))
-            for k_v
+            (k, v, getm(k))
+            for (k, v)
             in iter(payload_items)
         ]
 
@@ -183,7 +183,7 @@ class BaseMessage(object):
         properties = properties_dict(obj)
         if include_extensions:
             ext: ExtensionField
-            extension: Extension = get_model_extension_for_obj(obj)
+            extension: Extension = get_model_extensions_for_obj(obj)
             if extension:
                 for field, ext in list(extension.fields.items()):
                     loadfn = ext.loadfn

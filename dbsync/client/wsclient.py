@@ -21,7 +21,7 @@ from dbsync.messages.codecs import encode_dict, SyncdbJSONEncoder
 from dbsync.messages.pull import PullRequestMessage, PullMessage
 from dbsync.messages.push import PushMessage
 from dbsync.messages.register import RegisterMessage
-from dbsync.models import Node, model_extensions, get_model_extension_for_obj, Version, Operation
+from dbsync.models import Node, get_model_extensions_for_obj, Version, Operation
 from dbsync.socketclient import GenericWSClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -106,7 +106,7 @@ class SyncClient(GenericWSClient):
         pkname = msg['id_field']
         obj = session.query(klass).filter(getattr(klass, pkname) == msg[pkname]).one()
 
-        extension = get_model_extension_for_obj(obj)
+        extension = get_model_extensions_for_obj(obj)
 
         logger.debug(f"model extension: {extension}")
         fieldname = msg['field_name']
