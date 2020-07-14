@@ -4,7 +4,7 @@ Internal model used to keep track of versions and operations.
 import inspect
 import json
 from dataclasses import dataclass, field
-from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type
+from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type, List
 from copy import deepcopy
 
 import sqlalchemy
@@ -79,13 +79,6 @@ class ExtensionField:
     arguments: the first is the object in the previous state, the
     second is the object in the current state."""
 
-    receive_payload_fn: Optional[
-        Callable[["Operation", SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
-    """is called on server side to request payload from the client side"""
-    send_payload_fn: Optional[
-        Callable[[SQLClass, str, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
-    """is called on client side as to accept the request from server side and send over the payload"""
-
     def __post_init__(self):
         assert self.loadfn is None or inspect.isroutine(self.loadfn), "load function must be a callable"
         assert self.savefn is None or inspect.isroutine(self.savefn), "save function must be a callable"
@@ -108,6 +101,8 @@ class Extension:
     """is called before an object is deleted"""
     before_tracking_fn: Optional[Callable[[Session, str, SQLClass], None]] = None
     """is called before an object is tracked"""
+    after_tracking_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
+    """is called after an object is tracked"""
     before_insert_tracking_fn: Optional[Callable[[Session, SQLClass], None]] = None
     """is called before an object is tracked for insert"""
     before_update_tracking_fn: Optional[Callable[[Session, SQLClass], None]] = None
@@ -124,21 +119,40 @@ class Extension:
     after_delete_fn: Optional[Callable[[Session, SQLClass], None]] = None
     """is called after an object is deleted"""
 
+    receive_payload_fn: Optional[
+        Callable[["Operation", SQLClass, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
+    """is called on server side to request payload from the client side"""
+    send_payload_fn: Optional[
+        Callable[[SQLClass, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
+    """is called on client side as to accept the request from server side and send over the payload"""
+
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
 
-ExtensionRegistry = Dict[
-    str,
-    Extension
-]
+class ExtensionRegistry(dict):
+    def add_extension(self, model: DeclarativeMeta,  extension: Extension):
+        name = model.__name__
+        if not name in self:
+            self[name] = []
+
+        self[name].append(extension)
+
+
+def get_model_extensions_for_obj(obj: SQLClass) -> List[Extension]:
+    return get_model_extensions_for_class(type(obj))
+
+
+def get_model_extensions_for_class(klass: DeclarativeMeta) -> List[Extension]:
+    return model_extension_registry.get(klass.__name__, [])
+
 
 #: ExtensionRegistry to tracked models.
-model_extension_registry: ExtensionRegistry = {}
+model_extension_registry: ExtensionRegistry = ExtensionRegistry()
 
 
-def call_before_tracking_fn(session, command, obj):
-    extension: Optional[Extension] = get_model_extensions_for_obj(obj)
-    if extension:
+def call_before_tracking_fn(session: Session, command: str, obj: SQLClass):
+    extensions: List[Extension] = get_model_extensions_for_obj(obj)
+    for extension in extensions:
         if extension.before_tracking_fn:
             extension.before_tracking_fn(session, command, obj)
 
@@ -152,32 +166,16 @@ def add_field_extension(model: DeclarativeMeta, fieldname: str, extension_field:
         assert not hasattr(model, fieldname), \
             "the model {0} already has the attribute {1}". \
                 format(model.__name__, fieldname)
-    extension: Optional[Extension] = get_model_extensions_for_class(model)
-    if not extension:
-        extension = Extension()
+    # extensions: List[Extension] = get_model_extensions_for_class(model)
+    extension = Extension()
 
     # type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
     extension.fields[fieldname] = extension_field
-    model_extension_registry[model.__name__] = extension
-
-
-def get_model_extensions_for_obj(obj: SQLClass) -> Optional[Extension]:
-    ext: Extension = get_model_extensions_for_class(type(obj))
-    return ext
-
-
-def get_model_extensions_for_class(klass: DeclarativeMeta) -> Optional[Extension]:
-    ext: Extension = model_extension_registry.get(klass.__name__, None)
-    return ext
+    model_extension_registry.add_extension(model, extension)
 
 
 def extend_model(klass: DeclarativeMeta, **kw) -> None:
-    name = klass.__name__
-    ext: Extension = model_extension_registry.get(name, None)
-    if ext:
-        ext.__dict__.update(**kw)
-    else:
-        model_extension_registry[name] = Extension(**kw)
+    model_extension_registry.add_extension(klass, Extension(**kw))
 
 
 def _has_extensions(obj: SQLClass) -> bool:
@@ -187,15 +185,15 @@ def _has_extensions(obj: SQLClass) -> bool:
 def _has_delete_functions(obj):
     ext: ExtensionField
 
-    extension: Extension = get_model_extensions_for_obj(obj)
+    extensions: List[Extension] = get_model_extensions_for_obj(obj)
 
-    if extension:
-        return any(
+    res = any([
+        any(
             extfield.deletefn is not None
             for extfield in list(extension.fields.values()))
-    else:
-        return False
-
+        for extension
+        in extensions
+    ])
 
 def save_extensions(obj):
     """
@@ -203,8 +201,8 @@ def save_extensions(obj):
     object.
     """
     extfield: ExtensionField
-    extension: Extension = get_model_extensions_for_obj(obj)
-    if extension:
+    extensions: List[Extension] = get_model_extensions_for_obj(obj)
+    for extension in extensions:
         for fieldname, extfield in list(extension.fields.items()):
             savefn = extfield.savefn
             try:
@@ -215,11 +213,11 @@ def save_extensions(obj):
                     "Couldn't save extension %s for object %s", fieldname, obj)
 
 
-def create_field_request_message(obj: SQLClass, field: str):
+def create_payload_request_message(obj: SQLClass, name: str = "default"):
     id_field = get_pk(obj)
     res = dict(
         type="request_field_payload",
-        field_name=field,
+        name=name,
         table=obj.__tablename__,
         id_field=id_field,
         id=getattr(obj, id_field),
@@ -236,22 +234,20 @@ async def request_payloads_for_extension(operation: "Operation", obj: SQLClass,
     """
     requests payload data for a given object via a given websocket, invoked by perform_async()
     """
-    extfield: ExtensionField
-    extension: Extension = get_model_extensions_for_obj(obj)
+    extensions: List[Extension] = get_model_extensions_for_obj(obj)
 
-    if extension:
-        for fieldname, extfield in list(extension.fields.items()):
-            if extfield.receive_payload_fn:
-                try:
-                    await websocket.send(create_field_request_message(obj, fieldname))
-                    await extfield.receive_payload_fn(operation, obj, fieldname, websocket, session)
-                except Exception as e:
-                    logger.exception(
-                        f"Couldn't request extension {fieldname} for object {obj}")
-                    raise
+    for extension in extensions:
+        if extension.receive_payload_fn:
+            try:
+                await websocket.send(create_payload_request_message(obj))
+                await extension.receive_payload_fn(operation, obj, websocket, session)
+            except Exception as e:
+                logger.exception(
+                    f"Couldn't request extension data for object {obj}")
+                raise
 
 
-def delete_extensions(old_obj: SQLClass, new_obj: Optional[SQLClass]):
+def delete_extensions(old_obj: SQLClass, new_obj):
     """
     Executes the delete procedures for the extensions of the given
     object. *old_obj* is the object in the previous state, and
@@ -259,15 +255,16 @@ def delete_extensions(old_obj: SQLClass, new_obj: Optional[SQLClass]):
     object was deleted).
     """
     extfield: ExtensionField
-    extension_fields = get_model_extensions_for_obj(new_obj)
-    for fieldname, extfield in list(extension_fields.fields.items()):
-        deletefn = extfield.deletefn
-        if deletefn is not None:
-            try:
-                deletefn(old_obj, new_obj)
-            except:
-                logger.exception(
-                    f"Couldn't delete extension {fieldname} for object {new_obj}")
+    extensions = get_model_extensions_for_obj(new_obj)
+    for extension in extensions:
+        for fieldname, extfield in list(extension.fields.items()):
+            deletefn = extfield.deletefn
+            if deletefn is not None:
+                try:
+                    deletefn(old_obj, new_obj)
+                except:
+                    logger.exception(
+                        f"Couldn't delete extension {fieldname} for object {new_obj}")
 
 
 # Database model
@@ -378,7 +375,7 @@ class Operation(Base):
     command = Column(String(1))
     order = Column(Integer, primary_key=True)
     version = relationship(Version, backref=backref("operations", lazy="joined"))
-    allowed_roles_and_users = Column(JSONB)
+    whitelist = Column(JSONB)
     """
     is a binary JSON (Fallback to normal JSON for SQLite) field that holds
     an array of user ids to be allowed to pull that object
@@ -457,10 +454,6 @@ class Operation(Base):
                 # using dbsync
                 # raise OperationError(
                 #     "the referenced object doesn't exist in database", operation)
-                # addendum:
-                # this can happen tracking of an object has been suppressed and
-                # later been activated during a 'u' operation,
-                # so we keep this logic
                 logger.warning(
                     "The referenced object doesn't exist in database. "
                     "Node %s. Operation %s",
@@ -496,28 +489,30 @@ class Operation(Base):
                 operation)
 
     def call_before_operation_fn(self, session: Session, obj: SQLClass, old_obj: Optional[SQLClass] = None):
-        extension: Extension = get_model_extensions_for_obj(obj)
-        if extension:
-            if extension.before_operation_fn:
-                extension.before_operation_fn(session, self, obj, old_obj)
-            if self.command == 'i' and extension.before_insert_fn:
-                extension.before_insert_fn(session, obj)
-            elif self.command == 'u' and extension.before_update_fn:
-                extension.before_update_fn(session, obj, old_obj)
-            elif self.command == 'd' and extension.before_delete_fn:
-                extension.before_delete_fn(session, obj)
+        extensions: List[Extension] = get_model_extensions_for_obj(obj)
+        for extension in extensions:
+            if extension:
+                if extension.before_operation_fn:
+                    extension.before_operation_fn(session, self, obj, old_obj)
+                if self.command == 'i' and extension.before_insert_fn:
+                    extension.before_insert_fn(session, obj)
+                elif self.command == 'u' and extension.before_update_fn:
+                    extension.before_update_fn(session, obj, old_obj)
+                elif self.command == 'd' and extension.before_delete_fn:
+                    extension.before_delete_fn(session, obj)
 
     def call_after_operation_fn(self, session: Session, obj: SQLClass):
-        extension: Extension = get_model_extensions_for_obj(obj)
-        if extension:
-            if extension.after_operation_fn:
-                extension.after_operation_fn(session, self, obj)
-            if self.command == 'i' and extension.after_insert_fn:
-                extension.after_insert_fn(session, obj)
-            elif self.command == 'u' and extension.after_update_fn:
-                extension.after_update_fn(session, obj)
-            elif self.command == 'd' and extension.after_delete_fn:
-                extension.after_delete_fn(session, obj)
+        extensions: List[Extension] = get_model_extensions_for_obj(obj)
+        for extension in extensions:
+            if extension:
+                if extension.after_operation_fn:
+                    extension.after_operation_fn(session, self, obj)
+                if self.command == 'i' and extension.after_insert_fn:
+                    extension.after_insert_fn(session, obj)
+                elif self.command == 'u' and extension.after_update_fn:
+                    extension.after_update_fn(session, obj)
+                elif self.command == 'd' and extension.after_delete_fn:
+                    extension.after_delete_fn(session, obj)
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
                             websocket: Optional[WebSocketCommonProtocol] = None
@@ -589,9 +584,12 @@ class Operation(Base):
                 # For now, the record will be created again, but is an
                 # error because nothing should be deleted without
                 # using dbsync
-                # XXX: fix that
                 # raise OperationError(
                 #     "the referenced object doesn't exist in database", operation)
+                # addendum:
+                # this can happen when tracking of an object has been suppressed and
+                # later been activated during a 'u' operation,
+                # so we keep this logic
                 logger.warning(
                     "The referenced object doesn't exist in database. "
                     "Node %s. Operation %s",
@@ -636,7 +634,6 @@ class Operation(Base):
                     node_id,
                     operation)
             else:
-                extension: Extension = get_model_extensions_for_obj(obj)
                 try:
                     # breakpoint()
                     operation.call_before_operation_fn(session, obj)

@@ -392,6 +392,7 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
         raise
 
     # check for downloaded A's
+    # a4 should not be uploaded because its blocked in the before_tracking_fn function
     for id in ids2:
         client_session = create_client_session(id)
         keys = ["a1", "a2", "a3", "a5"]

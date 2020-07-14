@@ -8,11 +8,12 @@ import base64
 import decimal
 import json
 import uuid
+from typing import List
 
 import rfc3339
 from sqlalchemy import types
 from dbsync import core
-from dbsync.models import ExtensionField, get_model_extensions_for_class
+from dbsync.models import ExtensionField, get_model_extensions_for_class, Extension
 from dbsync.lang import *
 from dbsync.utils import types_dict as bare_types_dict
 
@@ -35,10 +36,10 @@ class SyncdbJSONEncoder(json.JSONEncoder):
 def types_dict(class_):
     "Augments standard types_dict with model extensions."
     dict_ = bare_types_dict(class_)
-    extension = get_model_extensions_for_class(class_)
+    extensions: List[Extension] = get_model_extensions_for_class(class_)
     extfield: ExtensionField
 
-    if extension:
+    for extension in extensions:
         for fieldname, extfield in list(extension.fields.items()):
             type_= extfield.klass
             dict_[fieldname] = type_

@@ -3,7 +3,7 @@ Base functionality for synchronization messages.
 """
 
 import inspect
-from typing import Dict, Any, Union, Set
+from typing import Dict, Any, Union, Set, List
 
 from dbsync.lang import *
 from dbsync.utils import get_pk, properties_dict, construct_bare
@@ -183,8 +183,8 @@ class BaseMessage(object):
         properties = properties_dict(obj)
         if include_extensions:
             ext: ExtensionField
-            extension: Extension = get_model_extensions_for_obj(obj)
-            if extension:
+            extensions: List[Extension] = get_model_extensions_for_obj(obj)
+            for extension in extensions:
                 for field, ext in list(extension.fields.items()):
                     loadfn = ext.loadfn
                     if loadfn:

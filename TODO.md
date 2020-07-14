@@ -24,3 +24,17 @@ explanation:
 
 - check if the table `sync_content_types` is really used and delete it if it
 is superfluous
+
+## Overwork app-test to new infrastructure
+
+
+
+## Client side tracking
+
+## Server-Side tracking
+
+- hooks for tracking whitelist
+- ability to track uploading node also for subsequent server-side changes
+    - node_list
+    
+- pull only fetches operations where whitelist AND node_list matches

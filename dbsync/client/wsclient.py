@@ -106,12 +106,14 @@ class SyncClient(GenericWSClient):
         pkname = msg['id_field']
         obj = session.query(klass).filter(getattr(klass, pkname) == msg[pkname]).one()
 
-        extension = get_model_extensions_for_obj(obj)
+        extensions = get_model_extensions_for_obj(obj)
 
-        logger.debug(f"model extension: {extension}")
-        fieldname = msg['field_name']
-        extension_field = extension.fields[fieldname]
-        await extension_field.send_payload_fn(obj, fieldname, self.websocket, session)
+        logger.debug(f"model extension: {extensions}")
+        # fieldname = msg['field_name']
+
+        for extension in extensions:
+            if extension.send_payload_fn:
+                await extension.send_payload_fn(obj, self.websocket, session)
 
     async def run_push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
         new_version_id: Optional[int]
@@ -231,7 +233,7 @@ class SyncClient(GenericWSClient):
     async def synchronize(self, id=None):
         """
 
-        XXX: implement a more sophisticated retry strategy (random delay, longer delay schedule)
+        TODO: implement a more sophisticated retry strategy (random delay, longer delay schedule)
         currently we try 5 times:
             push -> if PullSuggested is risen -> retry
             normally 2 tries should be sufficient, but when multiple parallel clients are syncing, it can need mode

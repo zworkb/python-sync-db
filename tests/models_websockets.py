@@ -161,7 +161,7 @@ def teardown(Session: sessionmaker):
 # demos the the extension, the two handler functions do nothing
 
 
-async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonProtocol, session: Session):
+async def send_payload_data(obj: B, websocket: WebSocketCommonProtocol, session: Session):
     """
     This is an example function for sending payload data.
     in this example we first send a flag that signifies wether we have a payload to send
@@ -177,7 +177,7 @@ async def send_payload_data(obj: B, fieldname: str, websocket: WebSocketCommonPr
         await websocket.send(json.dumps(False))
 
 
-async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: WebSocketCommonProtocol,
+async def receive_payload_data(op: Operation, o: B, websocket: WebSocketCommonProtocol,
                                session: Session):
     """
     this example function shows the receive end for the payload data
@@ -185,7 +185,7 @@ async def receive_payload_data(op: Operation, o: B, fieldname: str, websocket: W
     assert core.mode == 'server'
     flag_ = await websocket.recv()
     flag = json.loads(flag_)
-    print(f"!!RECEIVE_PAYLOAD: field:{fieldname}, flag: {flag}, obj:{o}, op:{op}")
+    print(f"!!RECEIVE_PAYLOAD: flag: {flag}, obj:{o}, op:{op}")
     if flag:
         payload = await websocket.recv()
         with open(datapath(o.data), "w") as fh:
@@ -260,21 +260,17 @@ extend_model(
     before_tracking_fn=before_a_tracking
 )
 
+
+
+
 extend_model(
     B,
     before_operation_fn=before_b,
-    after_operation_fn=after_b
+    after_operation_fn=after_b,
+    receive_payload_fn=receive_payload_data,
+    send_payload_fn=send_payload_data,
 )
 
-add_field_extension(
-    B,
-    "data",
-    ExtensionField(
-        String,
-        receive_payload_fn=receive_payload_data,
-        send_payload_fn=send_payload_data
-    )
-)
 
 # extend(
 #     B,
