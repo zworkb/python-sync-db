@@ -22,6 +22,7 @@ from dbsync.utils import generate_secret
 import dbsync
 from dbsync import client, models, core
 
+
 server_db = "./test_server.db"
 server_uri_postgres = 'postgresql:///synctest'
 
@@ -68,6 +69,8 @@ class A(Base):
     comment = Column(String)
     comment_after = Column(String)
     comment_after_update = Column(String)
+    comment_after_tracking_server = Column(String)
+    comment_after_tracking_client = Column(String)
 
     def __repr__(self):
         return u"<A id:{0} name:{1}>".format(self.id, self.name)
@@ -87,6 +90,8 @@ class B(Base):
     pid = Column(String)
     comment = Column(String)
     comment_after = Column(String)
+    comment_after_tracking_server = Column(String)
+    comment_after_tracking_client = Column(String)
 
     a = relationship(A, backref="bs")
 
@@ -261,8 +266,6 @@ extend_model(
 )
 
 
-
-
 extend_model(
     B,
     before_operation_fn=before_b,
@@ -272,13 +275,14 @@ extend_model(
 )
 
 
-# extend(
-#     B,
-#     "otherdata",
-#     String,
-#     # load_data,
-#     # save_data,
-#     receive_payload_fn=receive_payload_data,
-#     send_payload_fn=send_payload_data
-#
-# )
+def after_any_tracking(session: Session, op: Operation, obj: SQLClass):
+    print(f"op:{op}, obj:{obj}")
+    if core.mode == 'server':
+        obj.comment_after_tracking_server = 'ok'
+    else:
+        obj.comment_after_tracking_client = 'ok'
+
+
+extend_model(
+    after_tracking_fn=after_any_tracking,
+)

@@ -31,6 +31,8 @@ is superfluous
 
 ## Client side tracking
 
+- server-side tracking and client-side tracking should both use mostly the same library functions
+
 ## Server-Side tracking
 
 - hooks for tracking whitelist

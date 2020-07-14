@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapper
 from sqlalchemy.orm.session import Session as GlobalSession, Session
 
 from dbsync import core
-from dbsync.models import Operation, Extension, get_model_extensions_for_obj, SkipOperation, call_before_tracking_fn
+from dbsync.models import Operation, SkipOperation, call_before_tracking_fn, call_after_tracking_fn
 from dbsync.logs import get_logger
 from sqlalchemy.sql import Join
 
@@ -46,6 +46,7 @@ def flush_operations(committed_session):
             op = _operations_queue.popleft()
             session.add(op)
             # TODO: call call_after_tracking_fn here
+            call_after_tracking_fn(session, op, op._target)
             session.flush()
 
 
@@ -112,6 +113,8 @@ def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Opti
             version_id=None,  # operation not yet versioned
             content_type_id=core.synched_models.tables[tname].id,
             command=command)
+
+        op._target = target
         _operations_queue.append(op)
         return op
     except SkipOperation:

@@ -12,7 +12,7 @@ from dbsync.core import with_transaction, with_transaction_async
 from dbsync.messages.codecs import SyncdbJSONEncoder
 from dbsync.messages.pull import PullRequestMessage, PullMessage
 from dbsync.messages.push import PushMessage
-from dbsync.models import OperationError, Version, Operation, attr, SQLClass
+from dbsync.models import OperationError, Version, Operation, attr, SQLClass, call_after_tracking_fn
 from dbsync.server import before_push, after_push
 from dbsync.server.conflicts import find_unique_conflicts
 from dbsync.server.handlers import PullRejected
@@ -118,6 +118,7 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
                             content_type_id=op.content_type_id,
                         )
                     )
+                    call_after_tracking_fn(session, op, obj)
                     await connection.socket.send(json.dumps(resp))
 
         except OperationError as e:

@@ -365,6 +365,13 @@ async def test_push_and_change_with_multiple_clients_parallel(sync_server, serve
         # for id in [3, 5]:
         #     res = pool.apply(push_only, [id])
 
+    # check tracking on server
+    for b in server_session.query(B):
+        assert b.comment_after_tracking_server == 'ok'
+
+    for a in server_session.query(A):
+        assert a.comment_after_tracking_server == 'ok'
+
     # check if the post fetched records are here
     # check for downloaded A's
     for id in ids2:
@@ -391,6 +398,14 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
     except PullSuggested as ex:
         raise
 
+    # check tracking on server
+    for b in server_session.query(B):
+        assert b.comment_after_tracking_server == 'ok'
+
+    for a in server_session.query(A):
+        assert a.comment_after_tracking_server == 'ok'
+
+
     # check for downloaded A's
     # a4 should not be uploaded because its blocked in the before_tracking_fn function
     for id in ids2:
@@ -399,6 +414,8 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
         for pid in ids:
             for k in keys:
                 a = client_session.query(A).filter(and_(A.key == k, A.pid == str(pid))).one()
+
+
 
 
 def test_subquery(sync_client, client_session):

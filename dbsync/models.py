@@ -4,7 +4,7 @@ Internal model used to keep track of versions and operations.
 import inspect
 import json
 from dataclasses import dataclass, field
-from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type, List
+from typing import Union, Optional, Tuple, Callable, Any, Coroutine, Dict, Type, List, _SpecialForm
 from copy import deepcopy
 
 import sqlalchemy
@@ -130,20 +130,24 @@ class Extension:
 
 
 class ExtensionRegistry(dict):
-    def add_extension(self, model: DeclarativeMeta,  extension: Extension):
-        name = model.__name__
+    def add_extension(self, model: Union[DeclarativeMeta, _SpecialForm],  extension: Extension):
+        name = "Any" if model is Any else model.__name__
         if not name in self:
             self[name] = []
 
         self[name].append(extension)
 
 
-def get_model_extensions_for_obj(obj: SQLClass) -> List[Extension]:
-    return get_model_extensions_for_class(type(obj))
+def get_model_extensions_for_obj(obj: SQLClass, include_any=True) -> List[Extension]:
+    return get_model_extensions_for_class(type(obj), include_any=include_any)
 
 
-def get_model_extensions_for_class(klass: DeclarativeMeta) -> List[Extension]:
-    return model_extension_registry.get(klass.__name__, [])
+def get_model_extensions_for_class(klass: DeclarativeMeta, include_any=True) -> List[Extension]:
+    """
+    when include_any is true -> include all extensions mapped to Any before
+    """
+    extensions = model_extension_registry.get(klass.__name__, [])
+    return model_extension_registry.get("Any", []) + extensions if include_any else extensions
 
 
 #: ExtensionRegistry to tracked models.
@@ -157,16 +161,19 @@ def call_before_tracking_fn(session: Session, command: str, obj: SQLClass):
             extension.before_tracking_fn(session, command, obj)
 
 
-def add_field_extension(model: DeclarativeMeta, fieldname: str, extension_field: ExtensionField):
+def call_after_tracking_fn(session: Session, op: "Operation", obj: SQLClass):
+    extensions: List[Extension] = get_model_extensions_for_obj(obj)
+    for extension in extensions:
+        if extension.after_tracking_fn:
+            extension.after_tracking_fn(session, op, obj)
+
+
+def add_field_extension(model: DeclarativeMeta,
+                        fieldname: str, extension_field: ExtensionField):
     assert inspect.isclass(model), "model must be a mapped class"
     assert isinstance(fieldname, str) and bool(fieldname), \
         "field name must be a non-empty string"
 
-    if extension_field.loadfn or extension_field.savefn:
-        assert not hasattr(model, fieldname), \
-            "the model {0} already has the attribute {1}". \
-                format(model.__name__, fieldname)
-    # extensions: List[Extension] = get_model_extensions_for_class(model)
     extension = Extension()
 
     # type_: TypeEngine = fieldtype if not inspect.isclass(fieldtype) else fieldtype()
@@ -174,7 +181,7 @@ def add_field_extension(model: DeclarativeMeta, fieldname: str, extension_field:
     model_extension_registry.add_extension(model, extension)
 
 
-def extend_model(klass: DeclarativeMeta, **kw) -> None:
+def extend_model(klass: Union[DeclarativeMeta, _SpecialForm] = Any, **kw) -> None:
     model_extension_registry.add_extension(klass, Extension(**kw))
 
 
@@ -384,6 +391,8 @@ class Operation(Base):
     """
 
     command_options = ('i', 'u', 'd')
+    _target: SQLClass
+    """temp reference to the operation target for after_tracking_fn"""
 
     @validates('command')
     def validate_command(self, key, command):
