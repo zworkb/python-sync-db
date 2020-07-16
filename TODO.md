@@ -40,3 +40,7 @@ is superfluous
     - node_list
     
 - pull only fetches operations where whitelist AND node_list matches
+
+## Authentication for sync
+
+   we need a concept for authentication for the websockets communication between client and syncserver
