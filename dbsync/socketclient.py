@@ -60,7 +60,7 @@ class GenericWSClient:
             path = self.path
         return f"{self.base_uri}/{path}"
 
-    async def connect_async(self, *, action: SocketAction = None, method: SocketAction = None, path=""):
+    async def connect_async(self, *, action: SocketAction = None, method: SocketMethod = None, path=""):
         print(f"before connecting to {self.uri(path)}")
         ws = websockets.connect(self.uri(path), timeout=200)
 

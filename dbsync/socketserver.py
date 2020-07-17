@@ -16,6 +16,7 @@ from .wscommon import exception_as_dict
 
 logger = create_logger(__name__)
 
+
 @dataclass
 class Connection:
     """
@@ -40,6 +41,7 @@ async def spam(connection: Connection):
     ....
 """
 
+
 @dataclass
 class HandlerDef:
     func: Handler
@@ -58,32 +60,33 @@ async def nop(connection: Connection) -> None:
 @dataclass
 class GenericWSServer(object):
     """
-    Generic Websocket server for convenience
+    generic websocket server for convenience
 
 
-    simplest way to use in conjunction with GenericWSClient:
-    this example starts the server in a seperate thread and lets the client call 'count'
-    This looks more complex than low-level websockets but the real reason is for writing
+    simplest way to use in conjunction with genericwsclient:
+    this example starts the server in a from cryptography.hazmat.primitives import serialization
+ thread and lets the client call 'count'
+    this looks more complex than low-level websockets but the real reason is for writing
     servers and clients with additional state and therefore better stored in a class instance
 
     example:
 
-    server = GenericWSServer(port=PORT)
+    server = genericwsserver(port=port)
     server.start_in_thread()
 
-    @GenericWSServer.handler("/count")
-    async def count(conn: Connection):
+    @genericwsserver.handler("/count")
+    async def count(conn: connection):
         count = int(await conn.socket.recv())
         for i in range(count):
             await conn.socket.send(f"count:{i}")
 
-    async def action(client: GenericWSClient) -> None:
+    async def action(client: genericwsclient) -> none:
         await client.websocket.send("10")
         async for msg in client.websocket:
             print("received:", msg)
 
-    client = GenericWSClient("localhost", PORT, "count")
-    client.connect(action=action, do_wait=True)
+    client = genericwsclient("localhost", port, "count")
+    client.connect(action=action, do_wait=true)
     server.stop()
 
     """
@@ -120,19 +123,19 @@ class GenericWSServer(object):
         logger.info(f"incoming connection at path {path}")
         connection: Optional[Connection] = None
         try:
-            hdef = self.registry()[path]
+            hdef = self.get_handler(path)
             handler: Handler = hdef.func  # mypy fails here due to this bug: https://github.com/python/mypy/issues/708
             connection = hdef.connection_class(self, socket, path)
             self.connections.add(connection)
-            await self.on_add_connection(connection)
             try:
+                await self.on_add_connection(connection)
                 await handler(connection)
             except Exception as e:
                 logger.warn(f"exception occured in handler{handler}")
                 traceback.print_exc()
                 exdict = exception_as_dict(e)
                 logger.error(exdict)
-                reason=json.dumps(exdict)[:123] # limitation is because of size limit in Wbsockets protocol
+                reason = json.dumps(exdict)[:123]  # limitation is because of size limit in Wbsockets protocol
 
                 await connection.socket.close(code=1001, reason=reason)
                 logger.info("exception sent")
@@ -143,6 +146,7 @@ class GenericWSServer(object):
         finally:
             self.connections.remove(connection)
             logger.info("server connection closed and removed")
+
     async def on_add_connection(self, connection):
         """
         default handler for added connections
@@ -154,13 +158,19 @@ class GenericWSServer(object):
         """
         return the registry for the given class
         """
-        return cls.global_registry[cls]
+        return cls.global_registry.get(cls, {})
+
+    @classmethod
+    def get_handler(cls, path):
+        if path in cls.registry():
+            return cls.registry()[path]
+        else:
+            return cls.__bases__[0].get_handler(path)
 
     @classmethod
     def handler(cls, name: str, connection_class: Type = Connection) -> Callable[[Handler], Handler]:
         """
         decorator for connection handler, works on class level
-
         """
 
         if cls not in cls.global_registry:
@@ -168,7 +178,7 @@ class GenericWSServer(object):
                 "/nop": HandlerDef(nop)
             }
 
-        def wrapped(func: Handler):
+        def wrapped(func: Handler) -> Handler:
             cls.registry()[name] = HandlerDef(func, connection_class)
             return func
 
@@ -212,7 +222,8 @@ class GenericWSServer(object):
             self.loop = asyncio.new_event_loop() if start_new_loop else asyncio.get_event_loop()
             self._create_stopper()
             coro = self.start_async()
-            self.task = asyncio.run_coroutine_threadsafe(coro, self.loop)  # for that it can be stopped by calling server.stop()
+            self.task = asyncio.run_coroutine_threadsafe(coro,
+                                                         self.loop)  # for that it can be stopped by calling server.stop()
             self.loop.run_until_complete(coro)
             if run_forever:
                 self.loop.run_forever()
@@ -255,5 +266,3 @@ class GenericWSServer(object):
     @property
     def serving(self):
         return self.server.is_serving() if self.server else False
-
-

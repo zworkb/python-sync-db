@@ -7,3 +7,13 @@
 
 # SQLite databases
 *.db
+
+.mypy_cache
+
+.*
+
+tests/testblobs
+
+testblobs
+
+*.egg-info
