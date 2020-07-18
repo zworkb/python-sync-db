@@ -66,12 +66,12 @@ class GenericWSClient:
 
         try:
             async with ws as self.websocket:
-                await self.on_connect()
                 self.connection_event.set()
                 self.connection_event = Event()
                 self.connection_status = "connected"
                 self.exception = None
                 logger.info("connected..")
+                await self.on_connect()
                 if action:
                     await action(self)
                 elif method:
@@ -114,7 +114,7 @@ class GenericWSClient:
         if self.task:
             self.task.cancel()
 
-    async def on_connect(self):
+    async def on_connect(self, *a, **kw):
         """default handler"""
 
     async def on_disconnect(self):

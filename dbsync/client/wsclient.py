@@ -56,6 +56,7 @@ class SyncClient(GenericWSClient):
                        encode=None, decode=None, headers=None, timeout=None,
                        session=None):
         async with websockets.connect(self.register_url) as ws:
+            await self.on_connect(ws)
             #  TODO:conv to strings, parse the params at server side
             logger.debug("register begin")
             params = dict(
