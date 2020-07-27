@@ -45,7 +45,6 @@ def flush_operations(committed_session):
         while _operations_queue:
             op = _operations_queue.popleft()
             session.add(op)
-            # TODO: call call_after_tracking_fn here
             call_after_tracking_fn(session, op, op._target)
             session.flush()
 
