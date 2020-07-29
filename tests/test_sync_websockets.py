@@ -288,7 +288,7 @@ async def test_push(sync_server: SyncServer, sync_client_registered, server_sess
 
     ## check if the record has ben synced downstram
     await sync_client_registered.synchronize()
-    a10_client = client_session.query(A).filter(A.key == "a10").one
+    a10_client = client_session.query(A).filter(A.key == "a10").one()
 
 
 @pytest.mark.asyncio
@@ -307,9 +307,15 @@ async def test_sync_bidirectional(sync_server: SyncServer, sync_client_registere
 
     print("op=", op)
 
+    # client_session.add(
+    #     A(name="a1 from client", key="a1")
+    # )
+    # client_session.commit()
+
     ## check if the record has ben synced downstram
     await sync_client_registered.synchronize()
-    a10_client = client_session.query(A).filter(A.key == "a10").one
+    a10_client = client_session.query(A).filter(A.key == "a10").one()
+
 
 
 def push_only(nr: int):

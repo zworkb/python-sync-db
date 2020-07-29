@@ -116,7 +116,7 @@ class SyncClient(GenericWSClient):
             if extension.send_payload_fn:
                 await extension.send_payload_fn(obj, self.websocket, session)
 
-    async def run_push(self, session: Optional[sqlalchemy.orm.session.Session] = None):
+    async def run_push(self, session: Optional[sqlalchemy.orm.session.Session] = None) -> Optional[int]:
         new_version_id: Optional[int]
         if not session:
             session = self.Session()
@@ -124,8 +124,9 @@ class SyncClient(GenericWSClient):
         message = self.create_push_message(session=session)
 
         logger.info(f"number of operations: {len(message.operations)}")
-        if not message.operations:
-            return {}
+
+        # if not message.operations:
+        #     return None
 
         node = session.query(Node).order_by(Node.node_id.desc()).first()
         message.set_node(node)  # TODO to should be migrated to GUID and ordered by creation date
@@ -161,9 +162,8 @@ class SyncClient(GenericWSClient):
         session.close_all()
 
         if new_version_id is None:
-            return
-            # breakpoint()
-            # raise ValueError("did not get a versionid from server")
+            return None
+
         session = self.Session()
 
         # because of the above reason (all sessions closed) we have to reselect the operations for updating
@@ -178,6 +178,7 @@ class SyncClient(GenericWSClient):
             Version(version_id=new_version_id, created=datetime.now()))
 
         session.commit()
+        return new_version_id
 
     async def run_pull(self, session: Optional[sqlalchemy.orm.session.Session] = None,
                        extra_data: Dict[str, Any] = None, monitor: Optional[Callable[[Dict[str, Any]], None]] = None):
@@ -244,7 +245,7 @@ class SyncClient(GenericWSClient):
         for _round in range(tries):
             try:
                 logger.info(f"-- round {_round} for {id}: try push")
-                await self.connect_async(method=self.run_push, path="push")
+                res_push = await self.connect_async(method=self.run_push, path="push")
                 self.elapsed_rounds = _round
                 return _round
             except (SerializationError, PullSuggested) as ex:

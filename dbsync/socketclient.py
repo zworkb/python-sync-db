@@ -63,7 +63,7 @@ class GenericWSClient:
     async def connect_async(self, *, action: SocketAction = None, method: SocketMethod = None, path=""):
         print(f"before connecting to {self.uri(path)}")
         ws = websockets.connect(self.uri(path), timeout=200)
-
+        res: Any = None
         try:
             async with ws as self.websocket:
                 self.connection_event.set()
@@ -73,11 +73,11 @@ class GenericWSClient:
                 logger.info("connected..")
                 await self.on_connect()
                 if action:
-                    await action(self)
+                    res = await action(self)
                 elif method:
-                    await method()
+                    res = await method()
                 else:
-                    await self.run()
+                    res = await self.run()
 
         except Exception as e:
             logger.exception(f"FAIL: {e.__class__.__name__}:{e}")
@@ -98,6 +98,8 @@ class GenericWSClient:
             logger.warn(f"connection closed with code: {self.websocket.close_code}, reason:{self.websocket.close_reason}")
             self.connection_status = "disconnected"
             self.websocket = None
+
+        return res
 
     def connect(self, action: SocketAction = None, do_wait=False):
         print("starting client!!")
