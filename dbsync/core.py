@@ -51,10 +51,10 @@ def set_sessionmaker(sm: sessionmaker):
     SessionClass = sm
 
 
-def Session():
+def Session(internal=True):
     s = SessionClass(bind=get_engine())
     s._model_changes = dict() # for flask-sqlalchemy
-    setattr(s, INTERNAL_SESSION_ATTR, True) # used to disable listeners
+    setattr(s, INTERNAL_SESSION_ATTR, internal) # used to disable listeners
     return s
 
 
@@ -205,15 +205,22 @@ def tracked_model(operation: Operation) -> Optional[SQLClass]:
 # Injects synched models lookup into the Operation class.
 Operation.tracked_model = property(tracked_model)
 
+class ModelList(Set):
+
+    def __init__(self, *a, **kw):
+        self.name = kw.pop("name")
+        super().__init__(*a, **kw)
+
+    def add(self, element):
+        super().add(element)
+        logger.info(f"add model: {element}")
 
 #: Set of classes in *synched_models* that are subject to pull handling.
-pulled_models: Set[SQLClass] = set()
+pulled_models: Set[SQLClass] = ModelList(name="pulled_models")
 
 
 #: Set of classes in *synched_models* that are subject to push handling.
-pushed_models: Set[SQLClass] = set()
-
-
+pushed_models: Set[SQLClass] = ModelList(name="pushed_models")
 
 
 #: Toggled variable used to disable listening to operations momentarily.

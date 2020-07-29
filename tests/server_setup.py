@@ -13,6 +13,7 @@ import multiprocessing as mp
 import sqlalchemy
 from dbsync import server
 from dbsync.server.wsserver import SyncServer
+from dbsync.server.tracking import track as track_server
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -21,8 +22,8 @@ from .models_websockets import Base, PORT, SERVER_URL, server_db, A, B, server_u
 
 def register_server_tracking():
     """"""
-    # server.start_tracking(A)
-    # server.start_tracking(B, "push")
+    server.start_tracking(A)
+    server.start_tracking(B, "push")
 
 
 def start_ws_server(**kw):
@@ -44,7 +45,7 @@ def start_ws_server(**kw):
     Base.metadata.create_all(engine_server)
     dbsync.set_engine(engine_server)
     dbsync.create_all()
-
+    register_server_tracking()
     try:
         asyncio.get_event_loop()
     except RuntimeError as e:

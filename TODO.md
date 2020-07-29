@@ -30,12 +30,12 @@ is superfluous
 
 
 ## Client side tracking
-
+- unify tracking for client and server
 - server-side tracking and client-side tracking should both use mostly the same library functions
 
 ## Server-Side tracking
 
-- hooks for tracking whitelist
+- [x] hooks for tracking whitelist
 - ability to track uploading node also for subsequent server-side changes
     - node_list
     
@@ -43,4 +43,4 @@ is superfluous
 
 ## Authentication for sync
 
-   we need a concept for authentication for the websockets communication between client and syncserver
+   [x] we need a concept for authentication for the websockets communication between client and syncserver

@@ -14,6 +14,7 @@ from sqlalchemy import and_
 from dbsync import models, core, wscommon
 from dbsync.client import PushRejected, PullSuggested
 from dbsync.client.wsclient import SyncClient
+from dbsync.core import with_transaction_async
 from dbsync.messages.push import PushMessage
 from dbsync.models import Node, Operation, Version
 from dbsync.server.wsserver import SyncServer
@@ -145,8 +146,20 @@ def test_push_message(sync_client, client_session, compress_info):
     assert len(msg.operations) == N
 
 
+@SyncServer.handler("/server_inserts")
+async def server_inserts(connection: Connection):
+    """
+    this happens in the server process
+    """
+    session = core.Session(internal=False)
+    print("server_inserts")
+    a10_server = A(name="a10 server", key="a10")
+    session.add(a10_server)
+    session.commit()
+
+
 @pytest.mark.asyncio
-async def test_push(sync_server, sync_client_registered, server_session, client_session):
+async def test_push(sync_server: SyncServer, sync_client_registered, server_session, client_session):
     addstuff(sync_client_registered.Session)
     # addstuff(core.Session)
     # sync_client.register()
@@ -260,6 +273,43 @@ async def test_push(sync_server, sync_client_registered, server_session, client_
     await sync_client_registered.synchronize()
     a7_server = server_session.query(A).filter(A.key == "a7").one_or_none()
     assert a7_server is not None
+
+    # test server side tracking
+    url = sync_client_registered.uri("server_inserts")
+    async with websockets.connect(url) as sock:
+        print("connected")
+
+    a10_server = server_session.query(A).filter(A.key == "a10").one()
+    print(a10_server)
+    ## lets see if the boy has been tracked
+    op = server_session.query(Operation).filter(Operation.row_id == a10_server.id).one()
+    
+    print("op=", op)
+
+    ## check if the record has ben synced downstram
+    await sync_client_registered.synchronize()
+    a10_client = client_session.query(A).filter(A.key == "a10").one
+
+
+@pytest.mark.asyncio
+async def test_sync_bidirectional(sync_server: SyncServer, sync_client_registered, server_session, client_session):
+    # addstuff(sync_client_registered.Session)
+
+    # test server side tracking
+    url = sync_client_registered.uri("server_inserts")
+    async with websockets.connect(url) as sock:
+        print("connected")
+
+    a10_server = server_session.query(A).filter(A.key == "a10").one()
+    print(a10_server)
+    ## lets see if the boy has been tracked
+    op = server_session.query(Operation).filter(Operation.row_id == a10_server.id).one()
+
+    print("op=", op)
+
+    ## check if the record has ben synced downstram
+    await sync_client_registered.synchronize()
+    a10_client = client_session.query(A).filter(A.key == "a10").one
 
 
 def push_only(nr: int):

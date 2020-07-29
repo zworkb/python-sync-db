@@ -6,6 +6,7 @@ import pytest
 import sqlalchemy
 from dbsync import client
 from dbsync.client.wsclient import SyncClient
+from dbsync.client.tracking import track, start_tracking
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -14,8 +15,8 @@ from .models_websockets import Base, PORT, SERVER_URL, server_db, client_db, A, 
 
 def register_client_tracking():
     """"""
-    # client.start_tracking(A)
-    # client.start_tracking(B, ("push",))
+    client.start_tracking(A)
+    client.start_tracking(B, ("push",))
 
 
 def create_sync_client(pid: int = 0, reset_db=True) -> SyncClient:

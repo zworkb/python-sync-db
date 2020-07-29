@@ -8,7 +8,6 @@ from typing import Union, Optional
 
 import pytest
 from websockets import WebSocketCommonProtocol
-
 from dbsync.client.wsclient import SyncClient
 from dbsync.createlogger import create_logger
 from dbsync.models import Operation, SQLClass, add_field_extension, ExtensionField, extend_model, SkipOperation
@@ -20,8 +19,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from dbsync.dialects import GUID
 from dbsync.utils import generate_secret
 import dbsync
-from dbsync import client, models, core
-
+from dbsync import client, models, core, server
 
 server_db = "./test_server.db"
 server_uri_postgres = 'postgresql:///synctest'
@@ -58,7 +56,7 @@ def datapath(fname="", mode=None, pid=""):
     return res
 
 
-@client.track
+# @client.track
 class A(Base):
     __tablename__ = "test_a"
 
@@ -78,7 +76,7 @@ class A(Base):
     __str__ = __repr__
 
 
-@client.track("push")
+# @client.track("push")
 class B(Base):
     __tablename__ = "test_b"
 

@@ -147,7 +147,6 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
             # orphans = session.query(Measurement).filter(Measurement.woodpile_id == None).all()
             # print(f"orphans:{orphans}")
 
-
         for listener in after_push:
             listener(session, pushmsg)
 

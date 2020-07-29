@@ -202,6 +202,8 @@ def _has_delete_functions(obj):
         in extensions
     ])
 
+    return res
+
 def save_extensions(obj):
     """
     Executes the save procedures for the extensions of the given
@@ -411,91 +413,6 @@ class Operation(Base):
         if model is None:
             return False  # operation doesn't even refer to a tracked model
         return model is type(obj)
-
-    def perform(operation, container, session, node_id=None):
-        """
-        Performs *operation*, looking for required data in
-        *container*, and using *session* to perform it.
-
-        *container* is an instance of
-        dbsync.messages.base.BaseMessage.
-
-        *node_id* is the node responsible for the operation, if known
-        (else ``None``).
-
-        If at any moment this operation fails for predictable causes,
-        it will raise an *OperationError*.
-        """
-        model = operation.tracked_model
-        if model is None:
-            raise OperationError("no content type for this operation", operation)
-
-        if operation.command == 'i':
-            obj = query_model(session, model). \
-                filter(getattr(model, get_pk(model)) == operation.row_id).first()
-            pull_obj = container.query(model). \
-                filter(attr('__pk__') == operation.row_id).first()
-            if pull_obj is None:
-                raise OperationError(
-                    "no object backing the operation in container", operation)
-            if obj is None:
-                session.add(pull_obj)
-            else:
-                # Don't raise an exception if the incoming object is
-                # exactly the same as the local one.
-                if properties_dict(obj) == properties_dict(pull_obj):
-                    logger.warning("insert attempted when an identical object "
-                                   "already existed in local database: "
-                                   "model {0} pk {1}".format(model.__name__,
-                                                             operation.row_id))
-                else:
-                    raise OperationError(
-                        "insert attempted when the object already existed: "
-                        "model {0} pk {1}".format(model.__name__,
-                                                  operation.row_id))
-
-        elif operation.command == 'u':
-            obj = query_model(session, model). \
-                filter(getattr(model, get_pk(model)) == operation.row_id).first()
-            if obj is None:
-                # For now, the record will be created again, but is an
-                # error because nothing should be deleted without
-                # using dbsync
-                # raise OperationError(
-                #     "the referenced object doesn't exist in database", operation)
-                logger.warning(
-                    "The referenced object doesn't exist in database. "
-                    "Node %s. Operation %s",
-                    node_id,
-                    operation)
-
-            pull_obj = container.query(model). \
-                filter(attr('__pk__') == operation.row_id).first()
-            if pull_obj is None:
-                raise OperationError(
-                    "no object backing the operation in container", operation)
-            session.merge(pull_obj)
-
-        elif operation.command == 'd':
-            obj = query_model(session, model, only_pk=True). \
-                filter(getattr(model, get_pk(model)) == operation.row_id).first()
-            if obj is None:
-                # The object is already deleted in the server
-                # The final state in node and server are the same. But
-                # it's an error because nothing should be deleted
-                # without using dbsync
-                logger.warning(
-                    "The referenced object doesn't exist in database. "
-                    "Node %s. Operation %s",
-                    node_id,
-                    operation)
-            else:
-                session.delete(obj)
-
-        else:
-            raise OperationError(
-                "the operation doesn't specify a valid command ('i', 'u', 'd')",
-                operation)
 
     def call_before_operation_fn(self, session: Session, obj: SQLClass, old_obj: Optional[SQLClass] = None):
         extensions: List[Extension] = get_model_extensions_for_obj(obj)

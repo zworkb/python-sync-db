@@ -60,7 +60,7 @@ def make_listener(command):
     return listener
 
 
-def start_tracking(model, directions = ("push", "pull")):
+def start_tracking(model, directions=("push", "pull")):
     if 'pull' in directions:
         core.pulled_models.add(model)
     if 'push' in directions:
