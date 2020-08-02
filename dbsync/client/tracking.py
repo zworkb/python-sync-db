@@ -132,9 +132,10 @@ def start_tracking(model: DeclarativeMeta, directions=("push", "pull")) -> Decla
     core.synched_models.install(model)
     if 'push' not in directions:
         return model # don't track operations for pull-only models
-    event.listen(model, 'after_insert', make_listener('i'))
-    event.listen(model, 'after_update', make_listener('u'))
-    event.listen(model, 'after_delete', make_listener('d'))
+    li = make_listener('i')
+    lu = make_listener('u')
+    ld = make_listener('d')
+    core.synched_models.register_handlers(model, (li, lu, ld))
     return model
 
 

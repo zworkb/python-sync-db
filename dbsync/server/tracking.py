@@ -18,8 +18,11 @@ from dbsync import core
 from dbsync.models import Operation, Version, SQLClass
 from dbsync.logs import get_logger
 
+from dbsync.createlogger import create_logger
+from logging import DEBUG
 
-logger = get_logger(__name__)
+logger = create_logger("dbsync.server.tracking")
+logger.level = DEBUG
 
 
 if core.mode == 'client':
@@ -27,13 +30,15 @@ if core.mode == 'client':
 core.mode = 'server'
 
 
-def make_listener(command):
+def make_listener(command: str):
     """Builds a listener for the given command (i, u, d)."""
     @core.session_committing
     def listener(mapper, connection, target, session=None):
+        logger.info(f"tracking {target}")
         if getattr(core.SessionClass.object_session(target),
                    core.INTERNAL_SESSION_ATTR,
                    False):
+            logger.debug(f"internal session object not tracked: {target}")
             return
         if not core.listening:
             logger.warning("dbsync is disabled; "
@@ -41,6 +46,7 @@ def make_listener(command):
             return
         if command == 'u' and not core.SessionClass.object_session(target).\
                 is_modified(target, include_collections=False):
+            logger.debug(f"updated and not modified -> no tracking: {target}")
             return
         tname = mapper.mapped_table.name
         if tname not in core.synched_models.tables:
@@ -49,6 +55,7 @@ def make_listener(command):
             return
         # one version for each operation
         version = Version(created=datetime.datetime.now())
+        logger.info(f"new version: {version.version_id}")
         pk = getattr(target, mapper.primary_key[0].name)
         op = Operation(
             row_id=pk,
@@ -67,10 +74,11 @@ def start_tracking(model, directions=("push", "pull")):
         core.pushed_models.add(model)
     if model in core.synched_models.models:
         return model
+    li = make_listener('i')
+    lu = make_listener('u')
+    ld = make_listener('d')
     core.synched_models.install(model)
-    event.listen(model, 'after_insert', make_listener('i'))
-    event.listen(model, 'after_update', make_listener('u'))
-    event.listen(model, 'after_delete', make_listener('d'))
+    core.synched_models.register_handlers(model, (li, lu, ld))
     return model
 
 

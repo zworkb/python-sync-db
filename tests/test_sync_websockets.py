@@ -15,6 +15,7 @@ from dbsync import models, core, wscommon
 from dbsync.client import PushRejected, PullSuggested
 from dbsync.client.wsclient import SyncClient
 from dbsync.core import with_transaction_async
+from dbsync.createlogger import create_logger
 from dbsync.messages.push import PushMessage
 from dbsync.models import Node, Operation, Version
 from dbsync.server.wsserver import SyncServer
@@ -28,6 +29,7 @@ from .server_setup import sync_server, server_session, server_db
 from .client_setup import sync_client, client_session, sync_client_registered, client_db, create_sync_client_registered, \
     create_client_session
 
+logger = create_logger("dbsync.tests")
 
 @SyncServer.handler("/counter")
 async def counter(conn: Connection):
@@ -151,10 +153,27 @@ async def server_inserts(connection: Connection):
     """
     this happens in the server process
     """
+    logger.info(f"********** server inserts")
     session = core.Session(internal=False)
     print("server_inserts")
     a10_server = A(name="a10 server", key="a10")
+    As = session.query(A).all()
+    logger.info(f"As: {As}")
+    logger.info(f"new a10: {a10_server.id}")
     session.add(a10_server)
+    session.commit()
+    a10_test = session.query(A).filter(A.key == "a10").one()
+    logger.info(f"********** server inserts done!")
+
+@SyncServer.handler("/server_inserts1")
+async def server_inserts1(connection: Connection):
+    """
+    this happens in the server process
+    """
+    session = core.Session(internal=False)
+    print("server_inserts1")
+    a11_server = A(name="a11 server", key="a11")
+    session.add(a11_server)
     session.commit()
 
 
@@ -279,6 +298,11 @@ async def test_push(sync_server: SyncServer, sync_client_registered, server_sess
     async with websockets.connect(url) as sock:
         print("connected")
 
+    # await sync_client_registered.call("server_inserts1")
+    # url = sync_client_registered.uri("server_inserts1")
+    # async with websockets.connect(url) as sock:
+    #     print("connected1")
+
     a10_server = server_session.query(A).filter(A.key == "a10").one()
     print(a10_server)
     ## lets see if the boy has been tracked
@@ -286,6 +310,7 @@ async def test_push(sync_server: SyncServer, sync_client_registered, server_sess
     
     print("op=", op)
 
+    logger.info("########################################################################### downsync")
     ## check if the record has ben synced downstram
     await sync_client_registered.synchronize()
     a10_client = client_session.query(A).filter(A.key == "a10").one()
@@ -444,7 +469,7 @@ async def test_push_and_change_with_multiple_clients_sequential(sync_server, ser
     calls push_and_change_in_process in sequential order, deterministic
     """
     ids = [1, 2, 3, 4]
-    ids2 = [4]  # in the seuential case the last client gets all other clients' items
+    ids2 = [4]  # in the sequential case the last client gets all other clients' items
 
     try:
         with multiprocessing.Pool() as pool:

@@ -18,11 +18,12 @@ try:
 except ImportError:
     from typing import _Protocol as Protocol
 
-from sqlalchemy import Table, Column
+from sqlalchemy import Table, Column, event
 
 logging.getLogger('dbsync').addHandler(logging.NullHandler())
 
 from sqlalchemy.orm import sessionmaker, Mapper
+from sqlalchemy.ext.declarative.api import DeclarativeMeta
 from sqlalchemy.engine import Engine
 
 from dbsync.lang import *
@@ -32,16 +33,12 @@ from dbsync.models import ContentType, Operation, Version, SQLClass, _has_delete
 from dbsync import dialects
 from dbsync.logs import get_logger
 
-
 logger = get_logger(__name__)
-
 
 #: Approximate maximum number of variables allowed in a query
 MAX_SQL_VARIABLES = 900
 
-
 INTERNAL_SESSION_ATTR = '_dbsync_internal'
-
 
 SessionClass = sessionmaker(autoflush=False, expire_on_commit=False)
 
@@ -53,8 +50,8 @@ def set_sessionmaker(sm: sessionmaker):
 
 def Session(internal=True):
     s = SessionClass(bind=get_engine())
-    s._model_changes = dict() # for flask-sqlalchemy
-    setattr(s, INTERNAL_SESSION_ATTR, internal) # used to disable listeners
+    s._model_changes = dict()  # for flask-sqlalchemy
+    setattr(s, INTERNAL_SESSION_ATTR, internal)  # used to disable listeners
     return s
 
 
@@ -69,6 +66,7 @@ def session_closing(fn):
         finally:
             if closeit:
                 session.close()
+
     return wrapped
 
 
@@ -92,6 +90,7 @@ def session_committing(fn):
         finally:
             if closeit:
                 session.close()
+
     return wrapped
 
 
@@ -111,7 +110,6 @@ def committing_context():
 #: The internal use mode, used to prevent client-server module
 #  collision. Possible values are 'modeless', 'client', 'server'.
 mode: str = 'modeless'
-
 
 #: The engine used for database connections.
 _engine: Optional[Engine] = None
@@ -144,7 +142,6 @@ def get_engine() -> Engine:
     return _engine
 
 
-
 @dataclass(frozen=True)
 class tracked_record:
     model: Optional[SQLClass] = None
@@ -153,15 +150,24 @@ class tracked_record:
 
 null_model = tracked_record()
 
-
+ModelHandler = Callable[[str], Any]
 @dataclass
 class SyncedModels:
     tables: Dict[str, tracked_record] = field(default_factory=dict)
-    models: Dict[SQLClass, tracked_record] = field(default_factory=dict)
+    models: Dict[DeclarativeMeta, tracked_record] = field(default_factory=dict)
     ids: Dict[int, tracked_record] = field(default_factory=dict)
     model_names: Dict[str, tracked_record] = field(default_factory=dict)
+    model_handlers: Dict[
+        DeclarativeMeta,
+        Tuple
+        [
+            ModelHandler,
+            ModelHandler,
+            ModelHandler,
+        ]
+    ] = field(default_factory=dict)
 
-    def install(self, model: SQLClass) -> None:
+    def install(self, model: DeclarativeMeta) -> None:
         """
         Installs the model in synched_models, indexing by class, class
         name, table name and content_type_id.
@@ -173,6 +179,31 @@ class SyncedModels:
         self.models[model] = record
         self.tables[tname] = record
         self.ids[ct_id] = record
+
+    def register_handlers(self,
+                          model: DeclarativeMeta,
+                          handlers: Tuple[ ModelHandler, ModelHandler, ModelHandler]):
+        li, lu, ld = handlers
+        event.listen(model, 'after_insert', li)
+        event.listen(model, 'after_update', lu)
+        event.listen(model, 'after_delete', ld)
+        self.model_handlers[model] = handlers
+
+    def clear(self):
+        logger.info(f"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ clearing Syned Models")
+        for nr, ev in enumerate(['after_insert', 'after_update', 'after_delete']):
+            for model in self.models:
+                listener = self.model_handlers[model]
+                logger.info(f"remove listener {listener} for {model} on {ev}")
+
+                if event.contains(model, ev, listener[nr]):
+                    event.remove(model, ev, listener[nr])
+
+        self.models.clear()
+        self.model_names.clear()
+        self.tables.clear()
+        self.ids.clear()
+
 
 
 synched_models = SyncedModels()
@@ -190,7 +221,7 @@ def table_id(tablename: str) -> Optional[int]:
 
 
 def table_name_for_id(id: int) -> Optional[str]:
-    for (k,v) in synched_models.tables.items:
+    for (k, v) in synched_models.tables.items:
         if v == id:
             return k
 
@@ -205,6 +236,7 @@ def tracked_model(operation: Operation) -> Optional[SQLClass]:
 # Injects synched models lookup into the Operation class.
 Operation.tracked_model = property(tracked_model)
 
+
 class ModelList(Set):
 
     def __init__(self, *a, **kw):
@@ -215,13 +247,12 @@ class ModelList(Set):
         super().add(element)
         logger.info(f"add model: {element}")
 
+
 #: Set of classes in *synched_models* that are subject to pull handling.
 pulled_models: Set[SQLClass] = ModelList(name="pulled_models")
 
-
 #: Set of classes in *synched_models* that are subject to push handling.
 pushed_models: Set[SQLClass] = ModelList(name="pushed_models")
-
 
 #: Toggled variable used to disable listening to operations momentarily.
 listening = True
@@ -244,6 +275,7 @@ def with_listening(enabled):
     Decorator for procedures to be executed with the specified
     listening status.
     """
+
     def wrapper(proc):
         @wraps(proc)
         def wrapped(*args, **kwargs):
@@ -253,7 +285,9 @@ def with_listening(enabled):
                 return proc(*args, **kwargs)
             finally:
                 toggle_listening(prev)
+
         return wrapped
+
     return wrapper
 
 
@@ -263,20 +297,23 @@ def _track_added(fn, added):
     def tracked(o, **kws):
         if _has_extensions(o): added.append(o)
         return fn(o, **kws)
+
     return tracked
 
 
 def _track_deleted(fn, deleted, session, always=False):
     def tracked(o, **kws):
         if _has_delete_functions(o):
-            if always: deleted.append((copy(o), None))
+            if always:
+                deleted.append((copy(o), None))
             else:
                 prev = query_model(session, type(o)).filter_by(
-                    **{get_pk(o): getattr(o, get_pk(o), None)}).\
+                    **{get_pk(o): getattr(o, get_pk(o), None)}). \
                     first()
                 if prev is not None:
                     deleted.append((copy(prev), o))
         return fn(o, **kws)
+
     return tracked
 
 
@@ -288,6 +325,7 @@ def with_transaction(include_extensions=True):
     appropriate. If *include_extensions* is ``False``, the transaction
     will ignore model extensions.
     """
+
     def wrapper(proc):
         @wraps(proc)
         def wrapped(*args, **kwargs):
@@ -324,8 +362,11 @@ def with_transaction(include_extensions=True):
             for old_obj, new_obj in deleted: delete_extensions(old_obj, new_obj)
             for obj in added: save_extensions(obj)
             return result
+
         return wrapped
+
     return wrapper
+
 
 def with_transaction_async(include_extensions=True):
     """
@@ -335,6 +376,7 @@ def with_transaction_async(include_extensions=True):
     appropriate. If *include_extensions* is ``False``, the transaction
     will ignore model extensions.
     """
+
     def wrapper(proc):
         @wraps(proc)
         async def wrapped(*args, **kwargs):
@@ -372,7 +414,9 @@ def with_transaction_async(include_extensions=True):
             for old_obj, new_obj in deleted: delete_extensions(old_obj, new_obj)
             for obj in added: save_extensions(obj)
             return result
+
         return wrapped
+
     return wrapper
 
 
@@ -395,7 +439,7 @@ def generate_content_types(session=None):
     for tname, record in list(synched_models.tables.items()):
         content_type_id = record.id
         mname = record.model.__name__
-        if session.query(ContentType).\
+        if session.query(ContentType). \
                 filter(ContentType.table_name == tname).count() == 0:
             session.add(ContentType(table_name=tname,
                                     model_name=mname,
@@ -411,13 +455,13 @@ def is_synched(obj, session=None):
     (i.e. the content type doesn't exist).
     """
     if type(obj) not in synched_models.models:
-        raise TypeError("the given object of class {0} isn't being tracked".\
-                            format(obj.__class__.__name__))
+        raise TypeError("the given object of class {0} isn't being tracked". \
+                        format(obj.__class__.__name__))
     session = Session()
-    last_op = session.query(Operation).\
+    last_op = session.query(Operation). \
         filter(Operation.content_type_id == synched_models.models[type(obj)].id,
-               Operation.row_id == getattr(obj, get_pk(obj))).\
-               order_by(Operation.order.desc()).first()
+               Operation.row_id == getattr(obj, get_pk(obj))). \
+        order_by(Operation.order.desc()).first()
     return last_op is None or last_op.version_id is not None
 
 

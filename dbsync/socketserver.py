@@ -129,10 +129,11 @@ class GenericWSServer(object):
             self.connections.add(connection)
             try:
                 await self.on_add_connection(connection)
+                logger.info(f"calling handler for path: {path}")
                 await handler(connection)
             except Exception as e:
                 logger.warn(f"exception occured in handler{handler}")
-                traceback.print_exc()
+                logger.error(traceback.format_exc())
                 exdict = exception_as_dict(e)
                 logger.error(exdict)
                 reason = json.dumps(exdict)[:123]  # limitation is because of size limit in Wbsockets protocol

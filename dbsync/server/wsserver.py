@@ -25,6 +25,7 @@ from sqlalchemy.orm import sessionmaker, make_transient
 
 from dbsync.utils import get_pk, properties_dict
 
+import logging
 logger = create_logger("dbsync-server")
 
 
@@ -44,13 +45,16 @@ class SyncServer(GenericWSServer):
 
 @SyncServer.handler("/push")
 @with_transaction_async()
-async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
+async def handle_push(connection: Connection, session: sqlalchemy.orm.Session) -> Optional[int]:
     msgs_got = 0
+    version: Optional[Version] = None
     async for msg in connection.socket:
         msgs_got += 1
         msg_json = json.loads(msg)
         pushmsg = PushMessage(msg_json)
         # print(f"pushmsg: {msg}")
+        if not pushmsg.operations:
+            logger.warn("empty operations list in client PushMessage")
         for op in pushmsg.operations:
             logger.info(f"operation: {op}")
         # await connection.socket.send(f"answer is:{msg}")
@@ -130,8 +134,9 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
                                *e.args)
 
         # III) insert a new version
-        version = Version(created=datetime.datetime.now(), node_id=pushmsg.node_id)
-        session.add(version)
+        if post_operations: # only if operations have been done -> create the new version
+            version = Version(created=datetime.datetime.now(), node_id=pushmsg.node_id)
+            session.add(version)
 
         # IV) insert the operations, discarding the 'order' column
         accomplished_operations = [op for (op, obj, old_obj) in post_operations]
@@ -153,15 +158,26 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session):
             listener(session, pushmsg)
 
         # return the new version id back to the client
-        logger.info(f"RESULT SERVER SAYS: {version}")
-        await connection.socket.send(json.dumps(
-            dict(
-                type="result",
-                new_version_id=version.version_id
-            )
-        ))
-        return {'new_version_id': version.version_id}
+        logger.info(f"version is: {version}")
+        if version:
+            await connection.socket.send(json.dumps(
+                dict(
+                    type="result",
+                    new_version_id=version.version_id
+                )
+            ))
+            return {'new_version_id': version.version_id}
+        else:
+            await connection.socket.send(json.dumps(
+                dict(
+                    type="result",
+                    new_version_id=None
+                )
+            ))
+            logger.info("sent nothing message")
+            connection.socket.close()
 
+    logger.info("push ready")
     # session.commit()
 
 

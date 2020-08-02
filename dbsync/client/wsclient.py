@@ -31,7 +31,11 @@ from dbsync.wscommon import SerializationError
 wscommon.register_exception(PushRejected)
 wscommon.register_exception(PullSuggested)
 
+from logging import DEBUG
+import logging
 logger = create_logger("wsclient")
+
+logger.level = DEBUG
 
 @dataclass
 class SyncClient(GenericWSClient):
@@ -123,10 +127,11 @@ class SyncClient(GenericWSClient):
 
         message = self.create_push_message(session=session)
 
-        logger.info(f"number of operations: {len(message.operations)}")
+        logger.info(f"number of client operations: {len(message.operations)}")
 
-        # if not message.operations:
-        #     return None
+        if not message.operations:
+            logger.info("empty client operations list")
+            # return None
 
         node = session.query(Node).order_by(Node.node_id.desc()).first()
         message.set_node(node)  # TODO to should be migrated to GUID and ordered by creation date
@@ -141,9 +146,10 @@ class SyncClient(GenericWSClient):
         await self.websocket.send(message_encoded)
         logger.info("message sent to server")
         session.commit()
-        logger.debug(f"message: {message_encoded}")
+        # logger.debug(f"message: {message_encoded}")
         new_version_id = None
         # accept incoming requests for payload data (optional)
+        logger.debug(f"wait for message from server")
         async for msg_ in self.websocket:
             logger.debug(f"client:{self.id} msg: {msg_}")
             msg = json.loads(msg_)
@@ -153,9 +159,12 @@ class SyncClient(GenericWSClient):
                 await self.send_field_payload(session, msg)
             elif msg['type'] == 'result':
                 new_version_id = msg['new_version_id']
+                if new_version_id is None:
+                    break
             else:
                 logger.debug(f"response from server:{msg}")
 
+        logger.debug(f"closing sessions")
         # else:
         #     print("ENDE:")
         # EEEEK TODO this is to prevent sqlite blocking due to other sessions
@@ -260,3 +269,11 @@ class SyncClient(GenericWSClient):
                     raise
             except Exception as ex:
                 raise
+
+    async def call(self, route, action=None, *a, **kw):
+        logger.warn(f"CALL: {route}")
+        url = f"{self.base_uri}/{route}"
+        async with websockets.connect(url) as ws:
+            await self.on_connect(ws)
+            if action:
+                await action(ws)

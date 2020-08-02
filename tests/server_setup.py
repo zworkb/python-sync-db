@@ -22,8 +22,11 @@ from .models_websockets import Base, PORT, SERVER_URL, server_db, A, B, server_u
 
 def register_server_tracking():
     """"""
+    dbsync.core.synched_models.clear()
+
     server.start_tracking(A)
     server.start_tracking(B, "push")
+
 
 
 def start_ws_server(**kw):

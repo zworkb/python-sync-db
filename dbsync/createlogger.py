@@ -7,7 +7,9 @@ def create_logger(name, level: int = logging.INFO):
     logger = logging.getLogger(name)
 
     logger.setLevel(level)
-    handler = logging.StreamHandler(stdout)
-    handler.setFormatter(logging.Formatter(f"[{mode}]%(levelname)s[%(module)s][%(lineno)d] : %(name)s :: %(funcName)s()  : %(message)s"))
-    logger.addHandler(handler)
+    formatter = logging.Formatter(f"[{mode}]%(levelname)s[%(module)s][%(lineno)d] : %(name)s :: %(funcName)s()  : %(message)s")
+
+    for handler in [logging.StreamHandler(stdout), logging.FileHandler("/tmp/woodmaster.log", "a")]:
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
     return logger

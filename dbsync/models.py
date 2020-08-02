@@ -402,8 +402,7 @@ class Operation(Base):
         return command
 
     def __repr__(self):
-        return "<Operation row_id: {0}, model: {1}, command: {2}>". \
-            format(self.row_id, self.tracked_model, self.command)
+        return f"<Operation row_id: {self.row_id}, model: {self.tracked_model}, command: {self.command}, version:{self.version}>"
 
     def references(self, obj):
         "Whether this operation references the given object or not."
