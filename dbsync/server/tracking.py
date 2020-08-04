@@ -15,7 +15,7 @@ from typing import List, Union
 from sqlalchemy import event
 
 from dbsync import core
-from dbsync.models import Operation, Version, SQLClass
+from dbsync.models import Operation, Version, SQLClass, call_after_tracking_fn, call_before_tracking_fn, SkipOperation
 from dbsync.logs import get_logger
 
 from dbsync.createlogger import create_logger
@@ -33,7 +33,7 @@ core.mode = 'server'
 def make_listener(command: str):
     """Builds a listener for the given command (i, u, d)."""
     @core.session_committing
-    def listener(mapper, connection, target, session=None):
+    def listener(mapper, connection, target, session=None) -> None:
         logger.info(f"tracking {target}")
         if getattr(core.SessionClass.object_session(target),
                    core.INTERNAL_SESSION_ATTR,
@@ -54,6 +54,12 @@ def make_listener(command: str):
                               "to log operations".format(tname))
             return
         # one version for each operation
+        # TODO: can be minimized by collecting ops in one flush queue
+        try:
+            call_before_tracking_fn(session, command, target)
+        except SkipOperation:
+            logger.info(f"skip operation for {target}")
+            return
         version = Version(created=datetime.datetime.now())
         logger.info(f"new version: {version.version_id}")
         pk = getattr(target, mapper.primary_key[0].name)
@@ -62,6 +68,7 @@ def make_listener(command: str):
             content_type_id=core.synched_models.tables[tname].id,
             command=command)
         session.add(version)
+        call_after_tracking_fn(session, op, target)
         session.add(op)
         op.version = version
     return listener
