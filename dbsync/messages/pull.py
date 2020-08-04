@@ -193,20 +193,29 @@ class PullMessage(BaseMessage):
         #     " one of the user's roles is in operation.allowed_users_and_roles "
         # order by
         #     operation.order
+        #
 
-        for v in versions:
-            self.versions.append(v)
-            for op in v.operations:
-                model = op.tracked_model
-                if model is None:
-                    raise ValueError("operation linked to model %s " \
-                                     "which isn't being tracked" % model)
-                if model not in pulled_models: continue
-                self.operations.append(op)
-                if op.command != 'd':
-                    pks = required_objects.get(model, set())
-                    pks.add(op.row_id)
-                    required_objects[model] = pks
+        # the basic query can be done here,
+        # per dep injection we must add the query for allowed_users
+
+        self.versions = versions.all()
+        ops = session.query(Operation)
+        if request.latest_version_id is not None:
+            ops = ops.filter(Operation.version_id > request.latest_version_id)
+
+        ops = ops.order_by(Operation.order)
+
+        for op in ops:
+            model = op.tracked_model
+            if model is None:
+                raise ValueError("operation linked to model %s " \
+                                 "which isn't being tracked" % model)
+            if model not in pulled_models: continue
+            self.operations.append(op)
+            if op.command != 'd':
+                pks = required_objects.get(model, set())
+                pks.add(op.row_id)
+                required_objects[model] = pks
 
         for model, pks in ((m, batch)
                            for m, pks in list(required_objects.items())
