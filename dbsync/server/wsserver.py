@@ -204,7 +204,9 @@ async def handle_pull(connection: Connection):
     message.fill_for(
         request_message,
         swell=swell,
-        include_extensions=include_extensions)
+        include_extensions=include_extensions,
+        connection=connection
+    )
     await connection.socket.send(json.dumps(message.to_json(), indent=4,  cls=SyncdbJSONEncoder))
 
 

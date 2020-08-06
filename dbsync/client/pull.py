@@ -241,6 +241,8 @@ async def merge(pull_message, session=None):
             session.flush()
 
     # IV) fourth phase: insert versions from the pull_message
+    # TODO: purge old versions locally
+    #   should normally be harmless, but this has to be done carefully
     for pull_version in pull_message.versions:
         session.add(pull_version)
 

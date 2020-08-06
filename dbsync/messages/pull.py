@@ -5,6 +5,8 @@ Pull message and related.
 import datetime
 
 from sqlalchemy import types
+from sqlalchemy.orm import Query
+
 from dbsync.utils import (
     properties_dict,
     object_from_dict,
@@ -20,10 +22,12 @@ from dbsync.core import (
     synched_models,
     pulled_models,
     get_latest_version_id)
-from dbsync.models import Operation, Version
+from dbsync.models import Operation, Version, call_filter_operations
 from dbsync.messages.base import MessageQuery, BaseMessage
 from dbsync.messages.codecs import encode, encode_dict, decode, decode_dict
 
+from dbsync.createlogger import create_logger
+logger = create_logger("dbsync-server")
 
 class PullMessage(BaseMessage):
     """
@@ -159,7 +163,7 @@ class PullMessage(BaseMessage):
 
     @session_closing
     def fill_for(self, request, swell=False, include_extensions=True,
-                 session=None):
+                 session=None, connection=None, **kw):
         """
         Fills this pull message (response) with versions, operations
         and objects, for the given request (PullRequestMessage).
@@ -199,12 +203,14 @@ class PullMessage(BaseMessage):
         # per dep injection we must add the query for allowed_users
 
         self.versions = versions.all()
-        ops = session.query(Operation)
+        ops: Query = session.query(Operation)
         if request.latest_version_id is not None:
             ops = ops.filter(Operation.version_id > request.latest_version_id)
 
+        ops = call_filter_operations(connection, session, ops)
         ops = ops.order_by(Operation.order)
 
+        self.operations = []
         for op in ops:
             model = op.tracked_model
             if model is None:

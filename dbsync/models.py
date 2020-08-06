@@ -13,13 +13,15 @@ from sqlalchemy.sql import Join
 from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.exc import NoSuchColumnError
 
+# from dbsync.socketserver import Connection
+
 try:
     from typing import Protocol
 except ImportError:
     from typing import _Protocol as Protocol
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table
-from sqlalchemy.orm import relationship, backref, validates, Session, Mapper
+from sqlalchemy.orm import relationship, backref, validates, Session, Mapper, Query
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.declarative.api import DeclarativeMeta
 from websockets import WebSocketServerProtocol, WebSocketCommonProtocol
@@ -126,6 +128,13 @@ class Extension:
         Callable[[SQLClass, WebSocketCommonProtocol, Session], Coroutine[Any, Any, None]]] = None
     """is called on client side as to accept the request from server side and send over the payload"""
 
+    filter_operations_fn: Optional[
+        Callable[["Connection", Session, Query], Query]
+    ] = None
+    """is called after operations have been selected on server side
+    here you can refine the query on your needs
+    """
+
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
 
@@ -146,12 +155,21 @@ def get_model_extensions_for_class(klass: DeclarativeMeta, include_any=True) -> 
     """
     when include_any is true -> include all extensions mapped to Any before
     """
-    extensions = model_extension_registry.get(klass.__name__, [])
+    extensions = model_extension_registry.get(klass.__name__, []) if klass is not Any else []
     return model_extension_registry.get("Any", []) + extensions if include_any else extensions
 
 
 #: ExtensionRegistry to tracked models.
 model_extension_registry: ExtensionRegistry = ExtensionRegistry()
+
+
+def call_filter_operations(connection: "Connection", session: Session, ops: Query):
+    extensions: List[Extension] = get_model_extensions_for_class(Any)
+    for extension in extensions:
+        if extension.filter_operations_fn:
+            ops = extension.filter_operations_fn(connection, session, ops)
+
+    return ops
 
 
 def call_before_tracking_fn(session: Session, command: str, obj: SQLClass):
