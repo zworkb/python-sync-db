@@ -13,6 +13,7 @@ import warnings
 from typing import List, Union
 
 from sqlalchemy import event
+from sqlalchemy.sql import Join
 
 from dbsync import core
 from dbsync.models import Operation, Version, SQLClass, call_after_tracking_fn, call_before_tracking_fn, SkipOperation
@@ -48,7 +49,13 @@ def make_listener(command: str):
                 is_modified(target, include_collections=False):
             logger.debug(f"updated and not modified -> no tracking: {target}")
             return
-        tname = mapper.mapped_table.name
+
+        mt = mapper.mapped_table
+        if isinstance(mt, Join):
+            tname = mt.right.name
+        else:
+            tname = mt.name
+
         if tname not in core.synched_models.tables:
             logging.error("you must track a mapped class to table {0} "\
                               "to log operations".format(tname))

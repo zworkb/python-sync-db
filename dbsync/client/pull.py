@@ -101,7 +101,7 @@ class UniqueConstraintError(Exception):
 
 
 @core.with_transaction()
-async def merge(pull_message, session=None):
+async def merge(pull_message, session=None, websocket=None):
     """
     Merges a message from the server with the local database.
 
@@ -223,7 +223,7 @@ async def merge(pull_message, session=None):
             # reinsert record
             local.command = 'i'
             # local.perform(pull_message, session)
-            await local.perform_async(pull_message, session)
+            await local.perform_async(pull_message, session, websocket=websocket)
             # delete trace of deletion
             purgelocal(local)
 
@@ -236,7 +236,7 @@ async def merge(pull_message, session=None):
             local.row_id = next_id
         if can_perform:
             # pull_op.perform(pull_message, session)
-            await pull_op.perform_async(pull_message, session)
+            await pull_op.perform_async(pull_message, session, websocket=websocket)
 
             session.flush()
 

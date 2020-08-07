@@ -234,7 +234,7 @@ class SyncClient(GenericWSClient):
                 'operations': len(message.operations)})
 
         logger.info("merging PullMessage...")
-        await merge(message, include_extensions=include_extensions)  #TODO: request_payload etc.
+        await merge(message, include_extensions=include_extensions, websocket=self.websocket)  #TODO: request_payload etc.
         if monitor:
             monitor({'status': "done"})
         # return the response for the programmer to do what she wants
@@ -270,10 +270,10 @@ class SyncClient(GenericWSClient):
             except Exception as ex:
                 raise
 
-    async def call(self, route, action=None, *a, **kw):
+    async def call(self, route, action=None, timeout=600, *a, **kw):
         logger.warn(f"CALL: {route}")
         url = f"{self.base_uri}/{route}"
-        async with websockets.connect(url) as ws:
+        async with websockets.connect(url, timeout=timeout) as ws:
             await self.on_connect(ws)
             if action:
                 await action(ws)
