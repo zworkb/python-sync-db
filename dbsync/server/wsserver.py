@@ -175,7 +175,7 @@ async def handle_push(connection: Connection, session: sqlalchemy.orm.Session) -
                 )
             ))
             logger.info("sent nothing message")
-            connection.socket.close()
+            await connection.socket.close()
 
     logger.info("push ready")
     # session.commit()

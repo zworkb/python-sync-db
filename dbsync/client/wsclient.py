@@ -71,7 +71,8 @@ class SyncClient(GenericWSClient):
             )
             msg = json.dumps(params)
             await ws.send(msg)
-            resp = json.loads(await ws.recv())
+            resp_raw = await ws.recv()
+            resp = json.loads(resp_raw)
 
             message = RegisterMessage(resp)
             session.add(message.node)
