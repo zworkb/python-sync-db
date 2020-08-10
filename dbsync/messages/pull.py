@@ -211,6 +211,9 @@ class PullMessage(BaseMessage):
         ops = ops.order_by(Operation.order)
 
         self.operations = []
+        logger.info(f"request.latest_version_id = {request.latest_version_id}")
+        logger.info(f"querying for {ops}")
+        logger.info(f"query result: {ops.all()}")
         for op in ops:
             model = op.tracked_model
             if model is None:
@@ -242,6 +245,8 @@ class PullMessage(BaseMessage):
             for parent in query_model(session, pmodel).filter(
                     getattr(pmodel, get_pk(pmodel)).in_(list(ppks))).all():
                 self.add_object(parent, include_extensions=include_extensions)
+
+        logger.info(f"operations result: {self.operations}")
         return self
 
 

@@ -184,6 +184,7 @@ class SyncClient(GenericWSClient):
             for op1 in ops1:
                 op1.version_id = new_version_id
 
+        logger.info(f"new version {new_version_id}")
         session.add(
             Version(version_id=new_version_id, created=datetime.now()))
 
@@ -218,7 +219,7 @@ class SyncClient(GenericWSClient):
         message = None
         try:
             message = PullMessage(response)
-            logger.info(f"got PullMessage: {message}")
+            logger.info(f"got PullMessage: {message} from response: {response_str}")
         except KeyError:
             if monitor:
                 monitor({
