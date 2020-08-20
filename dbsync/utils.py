@@ -17,6 +17,7 @@ from sqlalchemy.orm import (
     defer,
     instrumentation,
     state, Session, Query)
+from sqlalchemy.sql import Join
 
 
 def generate_secret(length=128):
@@ -154,3 +155,12 @@ class EventRegister(object):
         if listener not in self._listeners:
             self._listeners.append(listener)
         return listener
+
+
+def entity_name(mapped_table):
+    if isinstance(mt, Join):
+        tname = mapped_table.right.name
+    else:
+        tname = mapped_table.name
+
+    return tname

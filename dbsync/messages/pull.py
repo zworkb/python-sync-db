@@ -221,6 +221,10 @@ class PullMessage(BaseMessage):
                                  "which isn't being tracked" % model)
             if model not in pulled_models: continue
             obj = query_model(session, model).get(op.row_id)
+            if obj is None:
+                if op.command != 'd':
+                    logger.error(f"this should not happen, obj is None for op: {op} - ignoring")
+                    continue
             try:
                 call_before_server_add_operation_fn(connection, session, op, obj)
                 self.operations.append(op)

@@ -20,7 +20,7 @@ from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.sql import Join
 
 from dbsync.lang import *
-from dbsync.utils import get_pk, class_mapper, query_model, column_properties
+from dbsync.utils import get_pk, class_mapper, query_model, column_properties, entity_name
 from dbsync.core import synched_models, null_model
 from dbsync.models import Operation
 
@@ -32,10 +32,20 @@ def get_related_tables(sa_class):
     """
     mapper = class_mapper(sa_class)
     models = iter(list(synched_models.models.keys()))
-    return [table for table in (class_mapper(model).mapped_table
-                                for model in models)
-            if mapper.mapped_table in [key.column.table
-                                       for key in table.foreign_keys]]
+    return [
+        table
+        for table
+        in (
+            class_mapper(model).mapped_table
+            for model
+            in models
+        )
+        if mapper.mapped_table in [
+            key.column.table
+            for key
+            in table.foreign_keys
+        ]
+    ]
 
 
 def get_fks(table_from, table_to):
@@ -61,17 +71,27 @@ def related_local_ids(operation, session):
         return set()
     related_tables = get_related_tables(parent_model)
 
-    mapped_fks = [m_fks for m_fks in [(synched_models.tables.get(t.name, null_model).model,
-          get_fks(t, class_mapper(parent_model).mapped_table))
-         for t in related_tables] if m_fks[0] is not None and m_fks[1]]
+    mapped_fks = [
+        m_fks
+        for m_fks
+        in [
+            (
+                synched_models.tables.get(entity_name(t), null_model).model,
+                get_fks(t, class_mapper(parent_model).mapped_table)
+            )
+            for t
+            in related_tables
+        ]
+        if m_fks[0] is not None and m_fks[1]
+    ]
     return set(
         (pk, ct.id)
         for pk, ct in \
-            ((getattr(obj, get_pk(obj)), synched_models.models.get(model, None))
-             for model, fks in mapped_fks
-             for obj in query_model(session, model, only_pk=True).\
-                 filter(or_(*(getattr(model, fk) == operation.row_id
-                              for fk in fks))).all())
+        ((getattr(obj, get_pk(obj)), synched_models.models.get(model, None))
+         for model, fks in mapped_fks
+         for obj in query_model(session, model, only_pk=True). \
+             filter(or_(*(getattr(model, fk) == operation.row_id
+                          for fk in fks))).all())
         if ct is not None)
 
 
@@ -86,17 +106,17 @@ def related_remote_ids(operation, container):
         return set()
     related_tables = get_related_tables(parent_model)
 
-    mapped_fks = [m_fks1 for m_fks1 in [(synched_models.tables.get(t.name, null_model).model,
-          get_fks(t, class_mapper(parent_model).mapped_table))
-         for t in related_tables] if m_fks1[0] is not None and m_fks1[1]]
+    mapped_fks = [m_fks1 for m_fks1 in [(synched_models.tables.get(entity_name(t), null_model).model,
+                                         get_fks(t, class_mapper(parent_model).mapped_table))
+                                        for t in related_tables] if m_fks1[0] is not None and m_fks1[1]]
     return set(
         (pk, ct.id)
         for pk, ct in \
-            ((getattr(obj, get_pk(obj)), synched_models.models.get(model, None))
-             for model, fks in mapped_fks
-             for obj in container.query(model).\
-                 filter(lambda obj: any(getattr(obj, fk) == operation.row_id
-                                        for fk in fks)))
+        ((getattr(obj, get_pk(obj)), synched_models.models.get(model, None))
+         for model, fks in mapped_fks
+         for obj in container.query(model). \
+             filter(lambda obj: any(getattr(obj, fk) == operation.row_id
+                                    for fk in fks)))
         if ct is not None)
 
 
@@ -197,8 +217,8 @@ def find_unique_conflicts(pull_ops, unversioned_ops, pull_message, session):
         Checks to see whether some local object exists with
         conflicting values.
         """
-        match = query_model(session, model, only_pk=True).\
-            options(*(undefer(column) for column in columns)).\
+        match = query_model(session, model, only_pk=True). \
+            options(*(undefer(column) for column in columns)). \
             filter_by(**dict((column, value)
                              for column, value in zip(columns, values))).first()
         pk = get_pk(model)
@@ -244,8 +264,8 @@ def find_unique_conflicts(pull_ops, unversioned_ops, pull_message, session):
             is_unversioned = pk_conflict in unversioned_pks.get(
                 op.content_type_id, set())
 
-            if all(value is None for value in remote_values): continue # Null value
-            if pk_conflict is None: continue # No problem
+            if all(value is None for value in remote_values): continue  # Null value
+            if pk_conflict is None: continue  # No problem
             if pk_conflict == op.row_id:
                 if op.command == 'i':
                     # Two nodes created objects with the same unique
@@ -257,7 +277,7 @@ def find_unique_conflicts(pull_ops, unversioned_ops, pull_message, session):
                 continue
 
             # if pk_conflict != op.row_id:
-            remote_obj = pull_message.query(model).\
+            remote_obj = pull_message.query(model). \
                 filter(attr('__pk__') == pk_conflict).first()
 
             if remote_obj is not None and not is_unversioned:
