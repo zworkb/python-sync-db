@@ -23,7 +23,9 @@ from dbsync.lang import *
 from dbsync.utils import get_pk, class_mapper, query_model, column_properties, entity_name
 from dbsync.core import synched_models, null_model
 from dbsync.models import Operation
+from dbsync.createlogger import create_logger
 
+logger = create_logger("dbsync.client.conflicts")
 
 def get_related_tables(sa_class):
     """
@@ -84,16 +86,31 @@ def related_local_ids(operation, session):
         ]
         if m_fks[0] is not None and m_fks[1]
     ]
-    return set(
-        (pk, ct.id)
-        for pk, ct in \
-        ((getattr(obj, get_pk(obj)), synched_models.models.get(model, None))
-         for model, fks in mapped_fks
-         for obj in query_model(session, model, only_pk=True). \
-             filter(or_(*(getattr(model, fk) == operation.row_id
-                          for fk in fks))).all())
-        if ct is not None)
-
+    try:
+        return set(
+            (pk, ct.id)
+            for pk, ct
+            in (
+                (getattr(obj, get_pk(obj)), synched_models.models.get(model, None))
+                for model, fks in mapped_fks
+                for obj in query_model(session, model) \  # removed the pk_only param, because that fails with joins
+                    .filter(
+                        or_(
+                            *(
+                                getattr(model, fk) == operation.row_id
+                                for fk
+                                in fks
+                            )
+                        )
+                    ).all()
+            )
+            if ct is not None
+        )
+    except Exception as ex:
+        logger.exception(f"collecting conflicts failed: {ex}")
+        r0 = [query_model(session, model) for model, fks in mapped_fks]
+        r1 = [query_model(session, model).all() for model, fks in mapped_fks]
+        raise
 
 def related_remote_ids(operation, container):
     """
