@@ -134,6 +134,9 @@ class Extension:
     """is called after operations have been selected on server side
     here you can refine the query on your needs
     """
+    before_server_add_operation_fn: Optional[Callable[["Connection", Session, "Operation", SQLClass], None]] = None
+    """is called before an operation is added to the pull message on the server side"""
+
 
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
@@ -170,6 +173,15 @@ def call_filter_operations(connection: "Connection", session: Session, ops: Quer
             ops = extension.filter_operations_fn(connection, session, ops)
 
     return ops
+
+def call_before_server_add_operation_fn(connection: "Connection", session: Session, op:"Operation", obj:SQLClass):
+    """
+    there we cann check permissions before an operation is added to the pull_message on server side
+    """
+    extensions: List[Extension] = get_model_extensions_for_obj(obj)
+    for extension in extensions:
+        if extension.before_server_add_operation_fn:
+            extension.before_server_add_operation_fn(connection, session, op, obj)
 
 
 def call_before_tracking_fn(session: Session, command: str, obj: SQLClass):

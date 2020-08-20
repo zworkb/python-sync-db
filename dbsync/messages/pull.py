@@ -22,7 +22,7 @@ from dbsync.core import (
     synched_models,
     pulled_models,
     get_latest_version_id)
-from dbsync.models import Operation, Version, call_filter_operations
+from dbsync.models import Operation, Version, call_filter_operations, SkipOperation, call_before_server_add_operation_fn
 from dbsync.messages.base import MessageQuery, BaseMessage
 from dbsync.messages.codecs import encode, encode_dict, decode, decode_dict
 
@@ -220,7 +220,13 @@ class PullMessage(BaseMessage):
                 raise ValueError("operation linked to model %s " \
                                  "which isn't being tracked" % model)
             if model not in pulled_models: continue
-            self.operations.append(op)
+            obj = query_model(session, model).get(op.row_id)
+            try:
+                call_before_server_add_operation_fn(connection, session, op, obj)
+                self.operations.append(op)
+            except SkipOperation:
+                continue
+
             if op.command != 'd':
                 pks = required_objects.get(model, set())
                 pks.add(op.row_id)
