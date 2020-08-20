@@ -158,7 +158,7 @@ class EventRegister(object):
 
 
 def entity_name(mapped_table):
-    if isinstance(mt, Join):
+    if isinstance(mapped_table, Join):
         tname = mapped_table.right.name
     else:
         tname = mapped_table.name
