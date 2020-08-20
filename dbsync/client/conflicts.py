@@ -93,7 +93,8 @@ def related_local_ids(operation, session):
             in (
                 (getattr(obj, get_pk(obj)), synched_models.models.get(model, None))
                 for model, fks in mapped_fks
-                for obj in query_model(session, model) \  # removed the pk_only param, because that fails with joins
+                for obj in query_model(session, model) \
+                    # removed the pk_only param, because that fails with joins
                     .filter(
                         or_(
                             *(
