@@ -24,4 +24,5 @@ def create_logger(name, level: int = logging.INFO):
     for handler in handlers:
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+
     return logger
