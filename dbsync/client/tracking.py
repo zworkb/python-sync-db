@@ -122,18 +122,22 @@ def _add_operation(command: str, mapper: Mapper, target: SQLClass, session: Opti
 def start_tracking(model: DeclarativeMeta, directions=("push", "pull")) -> DeclarativeMeta:
     logger.info(f"model: {model}")
     if 'pull' in directions:
+        print(f"pull: add {model}")
         logger.info(f"pull: add {model}")
         core.pulled_models.add(model)
     if 'push' in directions:
+        print(f"push: add {model}")
         logger.info(f"push: add {model}")
         core.pushed_models.add(model)
     if model in core.synched_models.models:
         logger.info(f"model already in synced_models -> skipping")
+        print(f"model already in synced_models -> skipping")
         return model
     core.synched_models.install(model)
     if 'push' not in directions:
         return model # don't track operations for pull-only models
     logger.info(f"add listeners")
+    print(f"add listeners")
     li = make_listener('i')
     lu = make_listener('u')
     ld = make_listener('d')
