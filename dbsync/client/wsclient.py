@@ -59,6 +59,9 @@ class SyncClient(GenericWSClient):
     async def register(self, extra_data: Optional[Dict] = None,
                        encode=None, decode=None, headers=None, timeout=None,
                        session=None):
+        """
+        registers a node, works idempotent
+        """
         async with websockets.connect(self.register_url) as ws:
             await self.on_connect(ws)
             #  TODO:conv to strings, parse the params at server side

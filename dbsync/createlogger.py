@@ -10,8 +10,14 @@ def create_logger(name, level: int = logging.INFO):
     formatter = logging.Formatter(f"[{mode}]%(levelname)s[%(module)s][%(lineno)d] : %(name)s :: %(funcName)s()  : %(message)s")
 
     handlers = [logging.StreamHandler(stdout)]
+
     try:
         handlers.append(logging.FileHandler("/tmp/woodmaster.log", "a"))
+    except FileNotFoundError:
+        pass
+
+    try:
+        handlers.append(logging.FileHandler("/sdcard/woodmaster/woodmaster.log", "a"))
     except FileNotFoundError:
         pass
 
