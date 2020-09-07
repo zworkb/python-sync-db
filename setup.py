@@ -6,7 +6,6 @@ import os
 version = '0.8.0'
 shortdesc = "DB sync"
 
-breakpoint()
 
 setup(
     name='bddbsync',
