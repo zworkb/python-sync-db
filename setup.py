@@ -1,7 +1,7 @@
 from setuptools import find_packages
 from setuptools import setup
 
-setup(name='dbsync',
+setup(name='bd_dbsync',
       version="0.8.0",
       url='https://github.com/bintlabs/python-sync-db',
       author='Bint',
