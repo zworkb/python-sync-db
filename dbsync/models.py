@@ -136,6 +136,8 @@ class Extension:
     """
     before_server_add_operation_fn: Optional[Callable[["Connection", Session, "Operation", SQLClass], None]] = None
     """is called before an operation is added to the pull message on the server side"""
+    before_client_add_object_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
+    """is called before the object is pushed on client side"""
 
 
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
@@ -468,6 +470,13 @@ class Operation(Base):
                     extension.after_update_fn(session, obj)
                 elif self.command == 'd' and extension.after_delete_fn:
                     extension.after_delete_fn(session, obj)
+
+    def call_before_client_add_object_fn(self, session: Session, op: "Operation", obj: SQLClass):
+        extensions: List[Extension] = get_model_extensions_for_obj(obj)
+        for extension in extensions:
+            if extension:
+                if extension.before_client_add_object_fn:
+                    extension.before_client_add_object_fn(session, op, obj)
 
     async def perform_async(operation: "Operation", container: "BaseMessage", session: Session, node_id=None,
                             websocket: Optional[WebSocketCommonProtocol] = None

@@ -195,15 +195,21 @@ class PushMessage(BaseMessage):
             model = op.tracked_model
             if model not in pushed_models: continue
             self.operations.append(op)
+
+            # TODO: add handler here for that we can react on client side to a sync event(e.g. change workflow state of an object)
+            # since this happens in a transaction changes in this situation will be rolled back
+            # in case of a failure
             if op.command != 'd':
                 pks = required_objects.get(model, set())
                 pks.add(op.row_id)
                 required_objects[model] = pks
+
         for model, pks in ((m, batch)
                            for m, pks in list(required_objects.items())
                            for batch in grouper(pks, MAX_SQL_VARIABLES)):
             for obj in query_model(session, model).filter(
                     getattr(model, get_pk(model)).in_(list(pks))).all():
+                op.call_before_client_add_object_fn(session, op, obj)
                 self.add_object(obj, include_extensions=include_extensions)
         if self.key is not None:
             # overwrite since it's probably an incorrect key
