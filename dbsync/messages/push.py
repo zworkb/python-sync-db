@@ -196,9 +196,6 @@ class PushMessage(BaseMessage):
             if model not in pushed_models: continue
             self.operations.append(op)
 
-            # TODO: add handler here for that we can react on client side to a sync event(e.g. change workflow state of an object)
-            # since this happens in a transaction changes in this situation will be rolled back
-            # in case of a failure
             if op.command != 'd':
                 pks = required_objects.get(model, set())
                 pks.add(op.row_id)
