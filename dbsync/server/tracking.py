@@ -68,6 +68,18 @@ def make_listener(command: str):
             logger.info(f"skip operation for {target}")
             return
         version = Version(created=datetime.datetime.now())
+        # TODO:
+        # we should try to make only one version per transaction
+        # so adding a new version should happen in the flush
+        # is not so easy but we should do that
+        # perhaps by creating a version for each new session.begin,
+        # holding that version until the flush/commit
+        # other idea:
+        # for the first time an operation is added to this session,
+        # we create a version object and pin it to the session(session.current_version=version)
+        # point the operations to this version
+        # and finally during flush() the operations have only one session
+
         logger.info(f"new version: {version.version_id}")
         pk = getattr(target, mapper.primary_key[0].name)
         op = Operation(
