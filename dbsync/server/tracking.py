@@ -67,7 +67,6 @@ def make_listener(command: str):
         except SkipOperation:
             logger.info(f"skip operation for {target}")
             return
-        version = Version(created=datetime.datetime.now())
         # TODO:
         # we should try to make only one version per transaction
         # so adding a new version should happen in the flush
@@ -79,7 +78,15 @@ def make_listener(command: str):
         # we create a version object and pin it to the session(session.current_version=version)
         # point the operations to this version
         # and finally during flush() the operations have only one session
+        # problem is that the @core.session_committing decorator creates a new
+        # session for each call to this function => have to dig deeper
 
+        version = Version(created=datetime.datetime.now())
+        # if not hasattr(session, '__current_version__'):
+        #     session.__current_version__ = Version(created=datetime.datetime.now())
+        #     session.add(session.__current_version__)
+        # version = session.__current_version__
+        #
         logger.info(f"new version: {version.version_id}")
         pk = getattr(target, mapper.primary_key[0].name)
         op = Operation(
