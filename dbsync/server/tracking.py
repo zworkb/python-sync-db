@@ -14,6 +14,7 @@ from typing import List, Union
 
 from sqlalchemy import event
 from sqlalchemy.sql import Join
+from sqlalchemy.orm.session import object_session
 
 from dbsync import core
 from dbsync.models import Operation, Version, SQLClass, call_after_tracking_fn, call_before_tracking_fn, SkipOperation
@@ -80,13 +81,18 @@ def make_listener(command: str):
         # and finally during flush() the operations have only one session
         # problem is that the @core.session_committing decorator creates a new
         # session for each call to this function => have to dig deeper
+        target_session = object_session(target)
+
+        def clear_on_flush(session, flush_context):
+            session.__current_version__ = None
 
         version = Version(created=datetime.datetime.now())
-        # if not hasattr(session, '__current_version__'):
-        #     session.__current_version__ = Version(created=datetime.datetime.now())
-        #     session.add(session.__current_version__)
-        # version = session.__current_version__
-        #
+        if not getattr(target_session, '__current_version__', None):
+            target_session.__current_version__ = Version(created=datetime.datetime.now())
+            session.add(target_session.__current_version__)
+            event.listen(target_session, "after_flush", clear_on_flush)
+        version = target_session.__current_version__
+
         logger.info(f"new version: {version.version_id}")
         pk = getattr(target, mapper.primary_key[0].name)
         op = Operation(
