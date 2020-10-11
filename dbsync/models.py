@@ -570,7 +570,7 @@ class Operation(Base):
             try:
                 operation.call_before_operation_fn(session, pull_obj, obj)
                 await request_payloads_for_extension(operation, pull_obj, websocket, session)
-                old_obj = deepcopy(obj)
+                old_obj = copy(obj)
                 session.merge(pull_obj)
                 res = pull_obj, old_obj
             except SkipOperation as e:
