@@ -139,7 +139,6 @@ class Extension:
     before_client_add_object_fn: Optional[Callable[[Session, "Operation", SQLClass], None]] = None
     """is called before the object is pushed on client side"""
 
-
     fields: Dict[str, ExtensionField] = field(default_factory=dict)
 
 

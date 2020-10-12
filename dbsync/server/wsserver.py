@@ -33,6 +33,7 @@ class SyncServerConnection(Connection):
     ...
 
 
+
 @dataclass
 class SyncServer(GenericWSServer):
     engine: Optional[Engine] = None
@@ -208,6 +209,22 @@ async def handle_pull(connection: Connection):
         connection=connection
     )
     await connection.socket.send(json.dumps(message.to_json(), indent=4,  cls=SyncdbJSONEncoder))
+
+    # fetch messages from client
+    logger.debug(f"server listening for messages after sending object")
+    async for msg_ in connection.socket:
+        logger.debug(f"server getting for msg: {msg_}")
+        msg = json.loads(msg_)
+        # logger.debug(f"msg: {msg}")
+        if msg['type'] == "request_field_payload":
+            logger.info(f"obj from client:{msg}")
+            await connection.send_field_payload( msg)
+        elif msg['type'] == 'result':
+            new_version_id = msg['new_version_id']
+            if new_version_id is None:
+                break
+        else:
+            logger.debug(f"response from server:{msg}")
 
 
 @SyncServer.handler("/status")

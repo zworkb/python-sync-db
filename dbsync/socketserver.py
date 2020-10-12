@@ -4,6 +4,7 @@ import json
 import threading
 import traceback
 import uuid
+import importlib
 from asyncio import Future, Task, Event
 from dataclasses import dataclass, field, InitVar
 from sys import stdout
@@ -29,6 +30,28 @@ class Connection:
 
     def __hash__(self):
         return hash(self.socket) * hash(self.path)
+
+    async def send_field_payload(self, msg: Dict[str, Any]):
+        from .models import get_model_extensions_for_obj
+        session = self.server.Session()
+        logger.debug(f"send_field_payload:{msg}")
+        # breakpoint()
+        module = importlib.import_module(msg['package_name'])
+        klass = getattr(module, msg['class_name'])
+        pkname = msg['id_field']
+        obj = session.query(klass).filter(getattr(klass, pkname) == msg[pkname]).one()
+
+        extensions = get_model_extensions_for_obj(obj)
+
+        logger.debug(f"model extension: {extensions}")
+        # fieldname = msg['field_name']
+
+        for extension in extensions:
+            if extension.send_payload_fn:
+                await extension.send_payload_fn(obj, self.socket, session)
+
+        session.close()
+
 
 
 Handler = Callable[[Connection], Coroutine[Any, Any, None]]
