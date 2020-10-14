@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import importlib
 import json
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
@@ -32,6 +33,26 @@ logger = create_logger("dbsync-server")
 class SyncServerConnection(Connection):
     ...
 
+async def send_field_payload(connection: Connection, msg: Dict[str, Any]):
+    from ..models import get_model_extensions_for_obj
+    session = connection.server.Session()
+    logger.debug(f"send_field_payload:{msg}")
+    # breakpoint()
+    module = importlib.import_module(msg['package_name'])
+    klass = getattr(module, msg['class_name'])
+    pkname = msg['id_field']
+    obj = session.query(klass).filter(getattr(klass, pkname) == msg[pkname]).one()
+
+    extensions = get_model_extensions_for_obj(obj)
+
+    logger.debug(f"model extension: {extensions}")
+    # fieldname = msg['field_name']
+
+    for extension in extensions:
+        if extension.send_payload_fn:
+            await extension.send_payload_fn(obj, connection.socket, session)
+
+    session.close()
 
 
 @dataclass
@@ -218,7 +239,7 @@ async def handle_pull(connection: Connection):
         # logger.debug(f"msg: {msg}")
         if msg['type'] == "request_field_payload":
             logger.info(f"obj from client:{msg}")
-            await connection.send_field_payload( msg)
+            await send_field_payload(connection, msg)
         elif msg['type'] == 'result':
             new_version_id = msg['new_version_id']
             if new_version_id is None:
