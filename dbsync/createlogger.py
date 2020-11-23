@@ -18,7 +18,7 @@ def create_logger(name, level: int = logging.INFO):
 
     try:
         handlers.append(logging.FileHandler("/sdcard/woodmaster/woodmaster.log", "a"))
-    except FileNotFoundError:
+    except Exception:
         pass
 
     for handler in handlers:
