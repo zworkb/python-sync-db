@@ -108,7 +108,7 @@ async def merge(pull_message, session=None, websocket=None):
     *pull_message* is an instance of dbsync.messages.pull.PullMessage.
     """
 
-    logger.info("begin merge")
+    logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~begin merge")
     if not isinstance(pull_message, PullMessage):
         raise TypeError("need an instance of dbsync.messages.pull.PullMessage "
                         "to perform the local merge operation")
@@ -236,6 +236,7 @@ async def merge(pull_message, session=None, websocket=None):
             local.row_id = next_id
         if can_perform:
             # pull_op.perform(pull_message, session)
+            logger.info("calling pull_op.perform_aync")
             await pull_op.perform_async(pull_message, session, websocket=websocket)
 
             session.flush()

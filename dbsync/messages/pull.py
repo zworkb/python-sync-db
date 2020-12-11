@@ -29,6 +29,7 @@ from dbsync.messages.codecs import encode, encode_dict, decode, decode_dict
 from dbsync.createlogger import create_logger
 logger = create_logger("dbsync-server")
 
+
 class PullMessage(BaseMessage):
     """
     A pull message.

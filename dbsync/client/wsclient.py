@@ -105,7 +105,7 @@ class SyncClient(GenericWSClient):
             session=session, include_extensions=extensions)
 
         return message
-
+    # XXX: refactor must be renamed to send_object_payload
     async def send_field_payload(self, session: sqlalchemy.orm.Session, msg: Dict[str, Any]):
 
         logger.debug(f"send_field_payload:{msg}")

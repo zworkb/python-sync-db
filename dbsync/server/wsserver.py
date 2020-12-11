@@ -229,6 +229,9 @@ async def handle_pull(connection: Connection):
         include_extensions=include_extensions,
         connection=connection
     )
+
+    # sends the whole bunch to the client,
+    # there it is received by client's run_pull and handled by pull.py/merge
     await connection.socket.send(json.dumps(message.to_json(), indent=4,  cls=SyncdbJSONEncoder))
 
     # fetch messages from client
@@ -238,6 +241,7 @@ async def handle_pull(connection: Connection):
         msg = json.loads(msg_)
         # logger.debug(f"msg: {msg}")
         if msg['type'] == "request_field_payload":
+            # sends payload data to client here
             logger.info(f"obj from client:{msg}")
             await send_field_payload(connection, msg)
         elif msg['type'] == 'result':
